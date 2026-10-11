@@ -16,7 +16,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.pedro.common.ConnectChecker
-import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.library.rtmp.RtmpCamera2
 import com.pedro.library.view.OpenGlView
@@ -33,12 +32,12 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     private lateinit var openGlView: OpenGlView
     private lateinit var camera: RtmpCamera2
-    private lateinit var renderer: OverlayRenderer
+    private lateinit var scenes: SceneController
     private lateinit var status: TextView
     private lateinit var liveButton: Button
     private lateinit var scorePanel: View
 
-    private var overlayFilter: ImageObjectFilterRender? = null
+    private val sceneButtons = mutableMapOf<Scene, Button>()
     private var server: RemoteServer? = null
     private var facing = CameraHelper.Facing.BACK
 
@@ -52,7 +51,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private val pin by lazy { Prefs(this).pin }
 
     private val scoreListener: (ScoreState) -> Unit = { state ->
-        overlayFilter?.setImage(renderer.render(state))
+        scenes.onState(state)
+        sceneButtons.forEach { (scene, button) -> button.alpha = if (scene == state.scene) 1f else 0.55f }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,7 +71,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             videoHeight = 1080
             videoBitrate = 4_500_000
         }
-        renderer = OverlayRenderer(videoWidth, videoHeight)
+        scenes = SceneController(this, OverlayRenderer(this, videoWidth, videoHeight))
 
         openGlView = findViewById(R.id.preview)
         status = findViewById(R.id.status)
@@ -101,6 +101,13 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             R.id.undo to "undo",
         ).forEach { (id, action) -> findViewById<Button>(id).setOnClickListener { ScoreManager.apply(action) } }
         findViewById<Button>(R.id.endSet).setOnClickListener { confirmEndSet() }
+        mapOf(
+            Scene.INTRO to R.id.sceneIntro, Scene.MATCH to R.id.sceneMatch, Scene.OUTRO to R.id.sceneOutro,
+        ).forEach { (scene, id) ->
+            val button = findViewById<Button>(id)
+            sceneButtons[scene] = button
+            button.setOnClickListener { ScoreManager.apply("scene_" + scene.name.lowercase()) }
+        }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -119,6 +126,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     override fun onDestroy() {
         ScoreManager.removeListener(scoreListener)
+        scenes.release()
         server?.stop()
         if (camera.isStreaming) camera.stopStream()
         if (camera.isOnPreview) camera.stopPreview()
@@ -142,13 +150,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             return
         }
         camera.startPreview(facing)
-        // Le filtre overlay est (re)créé à chaque démarrage de l'aperçu
-        val filter = ImageObjectFilterRender()
-        camera.getGlInterface().setFilter(filter)
-        filter.setImage(renderer.render(ScoreManager.state))
-        filter.setScale(100f, 100f)
-        filter.setPosition(0f, 0f)
-        overlayFilter = filter
+        // Les calques (vidéos, overlay, transition) sont recréés à chaque démarrage de l'aperçu
+        scenes.attach(camera.getGlInterface())
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -156,8 +159,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             camera.stopStream()
             updateLiveUi()
         }
+        scenes.detach()
         if (camera.isOnPreview) camera.stopPreview()
-        overlayFilter = null
     }
 
     // ---- Live ----

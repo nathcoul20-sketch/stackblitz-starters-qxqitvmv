@@ -25,6 +25,34 @@
         android:textSize="14sp"
         android:textStyle="bold" />
 
+    <!-- Choix de la scène diffusée, à gauche -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <Button
+            android:id="@+id/sceneIntro"
+            style="@style/ControlButton"
+            android:layout_width="120dp"
+            android:text="Intro" />
+
+        <Button
+            android:id="@+id/sceneMatch"
+            style="@style/ControlButton"
+            android:layout_width="120dp"
+            android:text="Match" />
+
+        <Button
+            android:id="@+id/sceneOutro"
+            style="@style/ControlButton"
+            android:layout_width="120dp"
+            android:text="Fin" />
+    </LinearLayout>
+
     <!-- Boutons de contrôle, à droite -->
     <LinearLayout
         android:layout_width="wrap_content"

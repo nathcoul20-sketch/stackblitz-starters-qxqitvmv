@@ -1,8 +1,12 @@
 package com.volleylive.app
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 enum class Team { HOME, AWAY }
+
+/** Ce qui est diffusé : écran d'attente, match (caméra + score), ou écran de fin. */
+enum class Scene { INTRO, MATCH, OUTRO }
 
 /** État complet du match, immuable : chaque action produit un nouvel état. */
 data class ScoreState(
@@ -16,6 +20,9 @@ data class ScoreState(
     val setNumber: Int = 1,
     val serving: Team? = null,
     val overlayVisible: Boolean = true,
+    val scene: Scene = Scene.INTRO,
+    /** Scores des sets terminés, dans l'ordre (domicile, extérieur). */
+    val setScores: List<Pair<Int, Int>> = emptyList(),
 ) {
     /** Points pour gagner le set en cours (25, ou 15 au tie-break du 5e set). */
     val pointsToWin: Int get() = if (setNumber >= 5) 15 else 25
@@ -40,5 +47,7 @@ data class ScoreState(
         put("serving", serving?.name?.lowercase() ?: JSONObject.NULL)
         put("overlayVisible", overlayVisible)
         put("setWinner", setWinner?.name?.lowercase() ?: JSONObject.NULL)
+        put("scene", scene.name.lowercase())
+        put("setScores", JSONArray(setScores.map { JSONArray(listOf(it.first, it.second)) }))
     }
 }

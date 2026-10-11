@@ -56,14 +56,22 @@ object ScoreManager {
             "serve_home" -> s.copy(serving = Team.HOME)
             "serve_away" -> s.copy(serving = Team.AWAY)
             "toggle_overlay" -> s.copy(overlayVisible = !s.overlayVisible)
+            // Changement de scène : pas d'historique (« Annuler » ne concerne que le score)
+            "scene_intro", "scene_match", "scene_outro" -> {
+                val scene = Scene.valueOf(action.removePrefix("scene_").uppercase())
+                if (scene != s.scene) commit(s.copy(scene = scene))
+                return true
+            }
             "reset" -> ScoreState(
                 homeName = s.homeName,
                 awayName = s.awayName,
                 competition = s.competition,
                 overlayVisible = s.overlayVisible,
+                scene = s.scene,
             )
             "undo" -> {
-                val previous = history.removeLastOrNull() ?: return false
+                // On garde la scène actuelle : annuler un point ne doit pas changer d'écran
+                val previous = history.removeLastOrNull()?.copy(scene = s.scene) ?: return false
                 state = previous
                 version++
                 notifyListeners(previous)
@@ -101,6 +109,7 @@ object ScoreManager {
             awaySets = s.awaySets + if (winner == Team.AWAY) 1 else 0,
             homeScore = 0,
             awayScore = 0,
+            setScores = s.setScores + (s.homeScore to s.awayScore),
             setNumber = s.setNumber + 1,
             serving = null,
         )

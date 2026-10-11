@@ -28,6 +28,10 @@
   .conn.ok::before { content: "● "; color: #3ccf4e; }
   .conn.ko::before { content: "● "; color: #ff4d4d; }
 
+  .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .scenes button { background: var(--panel); border: 2px solid #333; font-weight: 700; }
+  .scenes button.active { background: #fff; color: #111; border-color: #fff; }
+
   .teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .team { display: flex; flex-direction: column; gap: 8px; }
   .name { text-align: center; font-weight: 800; font-size: 20px; letter-spacing: .5px;
@@ -80,6 +84,12 @@
 <div class="top">
   <div class="setno" id="setNo">1er set</div>
   <div class="conn" id="conn">Connexion…</div>
+</div>
+
+<div class="scenes">
+  <button data-a="scene_intro" data-scene="intro">Intro</button>
+  <button data-a="scene_match" data-scene="match">Match</button>
+  <button data-a="scene_outro" data-scene="outro">Fin</button>
 </div>
 
 <div class="teams">
@@ -164,6 +174,9 @@
     $('home').classList.toggle('serving', s.serving === 'home');
     $('away').classList.toggle('serving', s.serving === 'away');
     $('endSet').classList.toggle('ready', !!s.setWinner);
+    document.querySelectorAll('[data-scene]').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-scene') === s.scene);
+    });
     $('overlayBtn').textContent = s.overlayVisible ? "Masquer l'overlay" : "Afficher l'overlay";
     if (firstLoad || document.activeElement.tagName !== 'INPUT') {
       $('cfgHome').value = s.homeName;

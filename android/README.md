@@ -37,6 +37,19 @@ Sur la télécommande : gros boutons « +1 point » par équipe, −1, sets, « 
 
 Le bouton **Score** sur le téléphone qui filme affiche aussi des boutons de secours.
 
+### Scènes
+
+Trois scènes, choisies depuis la télécommande (en haut) ou les boutons à gauche du téléphone qui filme :
+- **Intro** : vidéo « Le match va commencer » en boucle (scène par défaut à l'ouverture de la caméra) ;
+- **Match** : caméra + tableau de score ;
+- **Fin** : vidéo « Le match est fini » avec les noms, les sets gagnés et le détail des sets.
+
+Chaque changement de scène joue la transition ECVB ; la scène change quand la transition couvre l'écran.
+
+Fichiers graphiques : `res/drawable-nodpi/scoreboard.png` (fond du tableau de score),
+`res/raw/intro.mp4`, `res/raw/outro.mp4`, `assets/transition/*.webp` (transition image par image, avec transparence).
+Polices : Bebas Neue et Josefin Sans (licence SIL Open Font License) dans `assets/fonts/`.
+
 Bon à savoir :
 - L'écran reste allumé pendant le live ; verrouiller le téléphone ou quitter l'app coupe le direct.
 - 720p (≈ 2,5 Mb/s) est conseillé en 4G ; 1080p (≈ 4,5 Mb/s) sur une bonne connexion.
@@ -58,7 +71,8 @@ s'installent par-dessus les anciennes.
 |---|---|
 | `MainActivity.kt` | Écran de réglages (plateforme, clé, équipes) |
 | `StreamActivity.kt` | Caméra, live RTMP, overlay, boutons, QR code |
-| `OverlayRenderer.kt` | **Dessin du tableau de score** — à adapter pour l'overlay définitif |
+| `OverlayRenderer.kt` | Textes du tableau de score et de l'écran de fin |
+| `SceneController.kt` | Scènes (intro / match / fin), vidéos et transition |
 | `ScoreManager.kt` / `ScoreState.kt` | État du match, actions, historique (annuler) |
 | `RemoteServer.kt` | Serveur web de la télécommande (API `/api/state`, `/api/action`, `/api/config`) |
 | `assets/remote.html` | Interface de la télécommande |
