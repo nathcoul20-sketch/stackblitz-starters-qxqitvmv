@@ -37,6 +37,15 @@ Sur la télécommande : gros boutons « +1 point » par équipe, −1, sets, « 
 
 Le bouton **Score** sur le téléphone qui filme affiche aussi des boutons de secours.
 
+### Titre du live Twitch
+
+Avec Twitch, l'appli peut changer le titre du live au moment d'ouvrir la caméra :
+« Compétition | DOMICILE vs VISITEUR ». Il faut une fois pour toutes :
+1. créer une application sur https://dev.twitch.tv/console/apps (type de client **Public**,
+   URL de redirection `http://localhost`, catégorie *Broadcaster Suite*) et copier son **Client ID** ;
+2. dans Volley Live (plateforme Twitch), coller le Client ID puis « Connecter mon compte Twitch »
+   et valider le code sur twitch.tv/activate.
+
 ### Scènes
 
 Trois scènes, choisies depuis la télécommande (en haut) ou les boutons à gauche du téléphone qui filme :
@@ -80,6 +89,7 @@ s'installent par-dessus les anciennes.
 | `SceneController.kt` | Scènes (intro / match / fin), vidéos et transition |
 | `AlphaVideoFilterRender.kt` | Calque vidéo avec transparence (transition) |
 | `AudioMixer.kt` | Son du live : micro, musique, bruitage |
+| `TwitchApi.kt` | Connexion au compte Twitch et changement du titre du live |
 | `ScoreManager.kt` / `ScoreState.kt` | État du match, actions, historique (annuler) |
 | `RemoteServer.kt` | Serveur web de la télécommande (API `/api/state`, `/api/action`, `/api/config`) |
 | `assets/remote.html` | Interface de la télécommande |

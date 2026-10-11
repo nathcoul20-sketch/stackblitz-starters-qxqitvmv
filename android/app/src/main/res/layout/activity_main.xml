@@ -54,6 +54,60 @@
                 android:inputType="textPassword" />
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Twitch : titre du live automatique -->
+        <LinearLayout
+            android:id="@+id/twitchSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/section_bg"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/twitchAutoTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Mettre à jour le titre du live Twitch" />
+
+            <TextView
+                android:id="@+id/twitchTitlePreview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="13sp"
+                android:textStyle="italic" />
+
+            <TextView
+                android:id="@+id/twitchStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textSize="14sp" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/twitchClientIdLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="Client ID de l'application Twitch">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/twitchClientId"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textNoSuggestions" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <Button
+                android:id="@+id/twitchConnect"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Connecter mon compte Twitch" />
+        </LinearLayout>
+
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/quality1080"
             android:layout_width="match_parent"

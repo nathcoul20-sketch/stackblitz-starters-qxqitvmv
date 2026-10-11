@@ -59,6 +59,9 @@ dependencies {
     // Mini serveur web embarqué pour la télécommande (2e téléphone)
     implementation("org.nanohttpd:nanohttpd:2.3.1")
 
+    // Appels à l'API Twitch (titre du live)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     // Génération du QR code pour connecter la télécommande
     implementation("com.google.zxing:core:3.5.3")
 }
