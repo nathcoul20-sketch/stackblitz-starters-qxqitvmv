@@ -28,6 +28,7 @@
   .conn.ok::before { content: "● "; color: #3ccf4e; }
   .conn.ko::before { content: "● "; color: #ff4d4d; }
 
+  .label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
   .scenes button { background: var(--panel); border: 2px solid #333; font-weight: 700; }
   .scenes button.active { background: #fff; color: #111; border-color: #fff; }
@@ -86,6 +87,7 @@
   <div class="conn" id="conn">Connexion…</div>
 </div>
 
+<div class="label">Écran diffusé</div>
 <div class="scenes">
   <button data-a="scene_intro" data-scene="intro">Intro</button>
   <button data-a="scene_match" data-scene="match">Match</button>
@@ -135,6 +137,7 @@
 
 <script>
 (function () {
+  var PAGE_VERSION = '__PAGE_VERSION__';
   var params = new URLSearchParams(location.search);
   var pin = params.get('pin') || localStorage.getItem('pin') || '';
   var state = null;
@@ -162,6 +165,8 @@
   }
 
   function render(s) {
+    // Appli mise à jour depuis l'ouverture de la page : on recharge la nouvelle télécommande
+    if (s.pageVersion && s.pageVersion !== PAGE_VERSION) { location.reload(); return; }
     var firstLoad = state === null;
     state = s;
     $('setNo').textContent = s.setNumber + (s.setNumber === 1 ? 'er' : 'e') + ' set';

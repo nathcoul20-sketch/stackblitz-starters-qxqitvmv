@@ -17,14 +17,22 @@ class RemoteServer(
     private val pin: String,
 ) : NanoHTTPD(port) {
 
-    private val page: String =
+    private val rawPage: String =
         context.assets.open("remote.html").bufferedReader(Charsets.UTF_8).use { it.readText() }
+
+    /**
+     * Version de la page : si l'appli est mise à jour, une télécommande restée ouverte
+     * avec l'ancienne page le détecte (voir /api/state) et se recharge toute seule.
+     */
+    private val pageVersion = Integer.toHexString(rawPage.hashCode())
+    private val page = rawPage.replace("__PAGE_VERSION__", pageVersion)
 
     override fun serve(session: IHTTPSession): Response {
         val params = session.parameters.mapValues { it.value.firstOrNull() }
         return try {
             when (session.uri) {
                 "/", "/index.html" -> newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", page)
+                    .apply { addHeader("Cache-Control", "no-store") }
                 "/api/state" -> authorized(params) { stateResponse() }
                 "/api/action" -> authorized(params) {
                     if (session.method != Method.POST) return@authorized error(Response.Status.METHOD_NOT_ALLOWED, "POST requis")
@@ -48,7 +56,9 @@ class RemoteServer(
         if (params["pin"] == pin) block() else error(Response.Status.UNAUTHORIZED, "Code PIN incorrect")
 
     private fun stateResponse(): Response {
-        val json = ScoreManager.state.toJson().put("version", ScoreManager.version)
+        val json = ScoreManager.state.toJson()
+            .put("version", ScoreManager.version)
+            .put("pageVersion", pageVersion)
         return json(Response.Status.OK, json)
     }
 

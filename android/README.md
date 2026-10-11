@@ -44,10 +44,15 @@ Trois scènes, choisies depuis la télécommande (en haut) ou les boutons à gau
 - **Match** : caméra + tableau de score ;
 - **Fin** : vidéo « Le match est fini » avec les noms, les sets gagnés et le détail des sets.
 
-Chaque changement de scène joue la transition ECVB ; la scène change quand la transition couvre l'écran.
+Chaque changement de scène joue la transition ECVB (avec son bruitage) ; la scène change quand la transition couvre l'écran.
+
+Son du live : en **Intro** et **Fin**, la musique (`res/raw/music.m4a`) remplace le micro, qui est coupé
+(évite les droits d'auteur sur la musique de la salle pendant l'échauffement). En **Match**, le micro revient.
+Le passage se fait en fondu ; la musique reprend là où elle s'était arrêtée.
 
 Fichiers graphiques : `res/drawable-nodpi/scoreboard.png` (fond du tableau de score),
-`res/raw/intro.mp4`, `res/raw/outro.mp4`, `assets/transition/*.webp` (transition image par image, avec transparence).
+`res/raw/intro.mp4`, `res/raw/outro.mp4`, `res/raw/transition.mp4` (transition « côte à côte » : couleurs à gauche,
+transparence à droite), `res/raw/transition_sfx.pcm` (bruitage), `res/raw/music.m4a`.
 Polices : Bebas Neue et Josefin Sans (licence SIL Open Font License) dans `assets/fonts/`.
 
 Bon à savoir :
@@ -73,6 +78,8 @@ s'installent par-dessus les anciennes.
 | `StreamActivity.kt` | Caméra, live RTMP, overlay, boutons, QR code |
 | `OverlayRenderer.kt` | Textes du tableau de score et de l'écran de fin |
 | `SceneController.kt` | Scènes (intro / match / fin), vidéos et transition |
+| `AlphaVideoFilterRender.kt` | Calque vidéo avec transparence (transition) |
+| `AudioMixer.kt` | Son du live : micro, musique, bruitage |
 | `ScoreManager.kt` / `ScoreState.kt` | État du match, actions, historique (annuler) |
 | `RemoteServer.kt` | Serveur web de la télécommande (API `/api/state`, `/api/action`, `/api/config`) |
 | `assets/remote.html` | Interface de la télécommande |

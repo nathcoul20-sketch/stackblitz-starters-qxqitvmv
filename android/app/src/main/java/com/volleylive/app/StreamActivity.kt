@@ -33,6 +33,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private lateinit var openGlView: OpenGlView
     private lateinit var camera: RtmpCamera2
     private lateinit var scenes: SceneController
+    private lateinit var audioMixer: AudioMixer
     private lateinit var status: TextView
     private lateinit var liveButton: Button
     private lateinit var scorePanel: View
@@ -71,7 +72,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             videoHeight = 1080
             videoBitrate = 4_500_000
         }
-        scenes = SceneController(this, OverlayRenderer(this, videoWidth, videoHeight))
+        audioMixer = AudioMixer(this)
+        scenes = SceneController(this, OverlayRenderer(this, videoWidth, videoHeight), audioMixer)
 
         openGlView = findViewById(R.id.preview)
         status = findViewById(R.id.status)
@@ -79,6 +81,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         scorePanel = findViewById(R.id.scorePanel)
 
         camera = RtmpCamera2(openGlView, this)
+        // Tout le son du live passe par le mixeur (musique / micro / bruitages)
+        camera.setCustomAudioEffect(audioMixer)
         openGlView.holder.addCallback(this)
 
         liveButton.isEnabled = url.isNotEmpty()
@@ -126,7 +130,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     override fun onDestroy() {
         ScoreManager.removeListener(scoreListener)
-        scenes.release()
+        scenes.detach()
+        audioMixer.release()
         server?.stop()
         if (camera.isStreaming) camera.stopStream()
         if (camera.isOnPreview) camera.stopPreview()
