@@ -29,8 +29,6 @@ class MainActivity : AppCompatActivity() {
     private data class Platform(val label: String, val url: String?, val backupUrl: String? = null)
 
     private val platforms = listOf(
-        Platform("YouTube", "rtmp://a.rtmp.youtube.com/live2", "rtmps://a.rtmps.youtube.com:443/live2"),
-        Platform("Facebook", "rtmps://live-api-s.facebook.com:443/rtmp"),
         // Serveur d'ingestion global recommandé par Twitch. RTMPS sur le port 443 en premier :
         // il passe aussi sur les Wi-Fi qui bloquent le port RTMP classique (1935).
         Platform(
@@ -102,7 +100,7 @@ class MainActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        platform.setSelection(prefs.platform.coerceIn(0, platforms.lastIndex))
+        platform.setSelection(platforms.indexOfFirst { it.label == prefs.platform }.coerceAtLeast(0))
         serverUrl.setText(prefs.serverUrl)
         streamKey.setText(prefs.streamKey)
         homeName.setText(prefs.homeName)
@@ -139,7 +137,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        prefs.platform = platform.selectedItemPosition
+        prefs.platform = platforms[platform.selectedItemPosition].label
         prefs.serverUrl = custom
         prefs.streamKey = key
         prefs.homeName = homeName.text.toString().trim().ifEmpty { "DOMICILE" }

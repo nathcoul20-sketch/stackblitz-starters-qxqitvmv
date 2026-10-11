@@ -1,6 +1,6 @@
 # Volley Live — application Android
 
-Filmer un match de volley en direct (YouTube, Facebook, Twitch ou serveur RTMP perso) avec
+Filmer un match de volley en direct (Twitch, ou serveur RTMP perso) avec
 un tableau de score incrusté dans la vidéo, mis à jour depuis un 2e téléphone.
 
 ## Principe
@@ -11,7 +11,7 @@ un tableau de score incrusté dans la vidéo, mis à jour depuis un 2e télépho
  │ caméra + micro                    │   Wi-Fi /  │ navigateur web           │
  │   + overlay score (OpenGL)  ──────┼── point ───┤ http://<ip>:8080         │
  │   → encodage H.264/AAC            │  d'accès   │ gros boutons +1 / −1 ... │
- │   → RTMP(S) vers YouTube/FB/...   │            └──────────────────────────┘
+ │   → RTMP(S) vers Twitch          │            └──────────────────────────┘
  │ serveur web intégré (port 8080)   │
  └───────────────────────────────────┘
 ```
@@ -25,8 +25,8 @@ un tableau de score incrusté dans la vidéo, mis à jour depuis un 2e télépho
 
 ## Utilisation
 
-1. Lancer l'app, choisir la plateforme, coller la **clé de diffusion** (YouTube Studio →
-   « Passer au direct » → Clé de flux), saisir les noms des équipes et la compétition.
+1. Lancer l'app, coller la **clé de stream** Twitch (Tableau de bord des créateurs →
+   Paramètres → Stream), saisir les noms des équipes et la compétition.
 2. « Ouvrir la caméra » → l'aperçu s'affiche avec l'overlay.
 3. Bouton **Télécommande** → scanner le QR code avec le 2e téléphone.
 4. Bouton **● LIVE** pour démarrer le direct.
@@ -67,7 +67,7 @@ Polices : Bebas Neue et Josefin Sans (licence SIL Open Font License) dans `asset
 Bon à savoir :
 - L'écran reste allumé pendant le live ; verrouiller le téléphone ou quitter l'app coupe le direct.
 - 720p (≈ 2,5 Mb/s) est conseillé en 4G ; 1080p (≈ 4,5 Mb/s) sur une bonne connexion.
-- En cas de coupure réseau, l'app retente automatiquement la connexion (10 essais, en alternant avec un serveur de secours pour YouTube et Twitch). Si ça échoue, la raison exacte s'affiche à l'écran.
+- En cas de coupure réseau, l'app retente automatiquement la connexion (10 essais, en alternant avec un serveur de secours pour Twitch). Si ça échoue, la raison exacte s'affiche à l'écran.
 
 ## Récupérer l'APK
 

@@ -6,9 +6,10 @@ import android.content.Context
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("volleylive", Context.MODE_PRIVATE)
 
-    var platform: Int
-        get() = sp.getInt("platform", 0)
-        set(v) = sp.edit().putInt("platform", v).apply()
+    /** Nom de la plateforme choisie (« Twitch » par défaut). */
+    var platform: String
+        get() = sp.getString("platformName", "Twitch") ?: "Twitch"
+        set(v) = sp.edit().putString("platformName", v).apply()
 
     var serverUrl: String
         get() = sp.getString("serverUrl", "") ?: ""
