@@ -19,12 +19,19 @@ import com.google.android.material.textfield.TextInputLayout
 
 class MainActivity : AppCompatActivity() {
 
-    private data class Platform(val label: String, val url: String?)
+    /** [backupUrl] : 2e serveur essayé en alternance si le premier refuse la connexion. */
+    private data class Platform(val label: String, val url: String?, val backupUrl: String? = null)
 
     private val platforms = listOf(
-        Platform("YouTube", "rtmp://a.rtmp.youtube.com/live2"),
+        Platform("YouTube", "rtmp://a.rtmp.youtube.com/live2", "rtmps://a.rtmps.youtube.com:443/live2"),
         Platform("Facebook", "rtmps://live-api-s.facebook.com:443/rtmp"),
-        Platform("Twitch", "rtmp://live.twitch.tv/app"),
+        // Serveur d'ingestion global recommandé par Twitch. RTMPS sur le port 443 en premier :
+        // il passe aussi sur les Wi-Fi qui bloquent le port RTMP classique (1935).
+        Platform(
+            "Twitch",
+            "rtmps://ingest.global-contribute.live-video.net:443/app",
+            "rtmp://ingest.global-contribute.live-video.net/app",
+        ),
         Platform("Serveur personnalisé", null),
         Platform("Pas de live (test overlay / télécommande)", ""),
     )
@@ -84,7 +91,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onStartClicked() {
         val selected = platforms[platform.selectedItemPosition]
-        val key = streamKey.text.toString().trim()
+        val key = cleanKey(streamKey.text.toString())
         val custom = serverUrl.text.toString().trim()
 
         if (selected.url == null && !custom.startsWith("rtmp")) {
@@ -117,6 +124,7 @@ class MainActivity : AppCompatActivity() {
             selected.url == null -> if (key.isEmpty()) prefs.serverUrl else joinUrl(prefs.serverUrl, key)
             else -> joinUrl(selected.url, key)
         }
+        val backupUrl = selected.backupUrl?.let { joinUrl(it, key) } ?: ""
 
         ScoreManager.init(
             ScoreState(homeName = prefs.homeName, awayName = prefs.awayName, competition = prefs.competition)
@@ -124,9 +132,19 @@ class MainActivity : AppCompatActivity() {
         startActivity(
             Intent(this, StreamActivity::class.java)
                 .putExtra(StreamActivity.EXTRA_URL, url)
+                .putExtra(StreamActivity.EXTRA_BACKUP_URL, backupUrl)
                 .putExtra(StreamActivity.EXTRA_1080P, prefs.quality1080)
         )
     }
 
     private fun joinUrl(base: String, key: String) = base.trimEnd('/') + "/" + key
+
+    /**
+     * Nettoie une clé collée : supprime espaces et retours à la ligne, et si une adresse complète
+     * a été collée (rtmp://.../app/live_xxx), ne garde que la clé à la fin.
+     */
+    private fun cleanKey(raw: String): String {
+        val key = raw.filterNot { it.isWhitespace() }
+        return if (key.contains("://")) key.substringAfterLast('/') else key
+    }
 }

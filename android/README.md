@@ -40,7 +40,7 @@ Le bouton **Score** sur le téléphone qui filme affiche aussi des boutons de se
 Bon à savoir :
 - L'écran reste allumé pendant le live ; verrouiller le téléphone ou quitter l'app coupe le direct.
 - 720p (≈ 2,5 Mb/s) est conseillé en 4G ; 1080p (≈ 4,5 Mb/s) sur une bonne connexion.
-- En cas de coupure réseau, l'app retente automatiquement la connexion (10 essais).
+- En cas de coupure réseau, l'app retente automatiquement la connexion (10 essais, en alternant avec un serveur de secours pour YouTube et Twitch). Si ça échoue, la raison exacte s'affiche à l'écran.
 
 ## Récupérer l'APK
 

@@ -26,6 +26,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     companion object {
         const val EXTRA_URL = "url"
+        const val EXTRA_BACKUP_URL = "backupUrl"
+        private const val MAX_RETRIES = 10
         const val EXTRA_1080P = "1080p"
     }
 
@@ -41,6 +43,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private var facing = CameraHelper.Facing.BACK
 
     private var url = ""
+    private var backupUrl = ""
+    private var retryCount = 0
     private var videoWidth = 1280
     private var videoHeight = 720
     private var videoBitrate = 2_500_000
@@ -61,6 +65,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         }
 
         url = intent.getStringExtra(EXTRA_URL) ?: ""
+        backupUrl = intent.getStringExtra(EXTRA_BACKUP_URL) ?: ""
         if (intent.getBooleanExtra(EXTRA_1080P, false)) {
             videoWidth = 1920
             videoHeight = 1080
@@ -74,7 +79,6 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         scorePanel = findViewById(R.id.scorePanel)
 
         camera = RtmpCamera2(openGlView, this)
-        camera.getStreamClient().setReTries(10)
         openGlView.holder.addCallback(this)
 
         liveButton.isEnabled = url.isNotEmpty()
@@ -174,6 +178,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             toast("Erreur de préparation de l'encodeur")
             return
         }
+        retryCount = 0
+        camera.getStreamClient().setReTries(MAX_RETRIES)
         camera.startStream(url)
         status.text = "Connexion…"
         updateLiveUi()
@@ -187,18 +193,37 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     override fun onConnectionStarted(url: String) {}
 
     override fun onConnectionSuccess() = runOnUiThread {
+        retryCount = 0
+        camera.getStreamClient().setReTries(MAX_RETRIES)
         status.text = "● EN DIRECT"
         toast("Live démarré")
     }
 
     override fun onConnectionFailed(reason: String) = runOnUiThread {
-        if (camera.getStreamClient().reTry(5000, reason, null)) {
-            status.text = "Reconnexion…"
+        retryCount++
+        // En alternance : serveur principal, puis serveur de secours (s'il existe)
+        val next = if (backupUrl.isNotEmpty() && retryCount % 2 == 1) backupUrl else url
+        if (camera.getStreamClient().reTry(5000, reason, next)) {
+            status.text = "Reconnexion $retryCount/$MAX_RETRIES…\n$reason"
         } else {
             camera.stopStream()
             updateLiveUi()
-            toast("Échec de connexion : $reason")
+            showConnectionError(reason)
         }
+    }
+
+    private fun showConnectionError(reason: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Impossible de lancer le live")
+            .setMessage(
+                "Erreur : $reason\n\n" +
+                    "À vérifier :\n" +
+                    "• la clé de diffusion (copiez-la à nouveau depuis la plateforme, en entier) ;\n" +
+                    "• la connexion internet du téléphone (essayez en 4G plutôt qu'en Wi-Fi) ;\n" +
+                    "• que le compte a bien le droit de diffuser en direct."
+            )
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     override fun onNewBitrate(bitrate: Long) = runOnUiThread {
