@@ -1,0 +1,42 @@
+<resources>
+    <style name="Theme.VolleyLive" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#D00A0A</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+
+    <style name="Theme.VolleyLive.Fullscreen" parent="Theme.VolleyLive">
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <style name="SectionTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">24dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="ControlButton" parent="Widget.Material3.Button">
+        <item name="android:layout_width">160dp</item>
+        <!-- Texte toujours sur une seule ligne (ex. « Télécommande ») -->
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginVertical">4dp</item>
+        <item name="backgroundTint">#CC333333</item>
+        <item name="android:textColor">#FFFFFF</item>
+    </style>
+
+    <style name="ScoreButton" parent="Widget.Material3.Button">
+        <item name="android:layout_width">64dp</item>
+        <item name="android:layout_height">56dp</item>
+        <item name="android:layout_marginHorizontal">4dp</item>
+        <item name="backgroundTint">#CC333333</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">18sp</item>
+    </style>
+</resources>
