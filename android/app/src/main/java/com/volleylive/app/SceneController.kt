@@ -189,9 +189,9 @@ class SceneController(
 
     companion object {
         /** Durée avant d'afficher le calque de transition (images transparentes au début). */
-        private const val SHOW_DELAY_MS = 120L
-        /** Changement de scène : la transition couvre tout l'écran entre 0,3 s et 1,6 s. */
-        private const val CUT_MS = 950L
+        private const val SHOW_DELAY_MS = 80L
+        /** Changement de scène : les volets couvrent tout l'écran entre 0,3 s et 1,1 s. */
+        private const val CUT_MS = 730L
         private const val TIMEOUT_MS = 3000L
     }
 }

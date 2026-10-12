@@ -60,7 +60,7 @@ Son du live : en **Intro** et **Fin**, la musique (`res/raw/music.m4a`) remplace
 Le passage se fait en fondu ; la musique reprend là où elle s'était arrêtée.
 
 Fichiers graphiques : `res/drawable-nodpi/scoreboard.png` (fond du tableau de score),
-`res/raw/intro.mp4`, `res/raw/outro.mp4`, `res/raw/transition.mp4` (transition « côte à côte » : couleurs à gauche,
+`res/raw/intro.mp4`, `res/raw/outro.mp4`, `res/raw/transition.mp4` (transition « volets » avec le logo ECVB, « côte à côte » : couleurs à gauche,
 transparence à droite), `res/raw/transition_sfx.pcm` (bruitage), `res/raw/music.m4a`.
 Polices : Bebas Neue et Josefin Sans (licence SIL Open Font License) dans `assets/fonts/`.
 
