@@ -1,4 +1,4 @@
-package com.volleylive.app
+package com.footlive.app
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -37,6 +37,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private lateinit var status: TextView
     private lateinit var liveButton: Button
     private lateinit var scorePanel: View
+    private lateinit var clockButton: Button
+    private lateinit var endPeriodButton: Button
 
     private val sceneButtons = mutableMapOf<Scene, Button>()
     private var server: RemoteServer? = null
@@ -54,6 +56,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private val scoreListener: (ScoreState) -> Unit = { state ->
         scenes.onState(state)
         sceneButtons.forEach { (scene, button) -> button.alpha = if (scene == state.scene) 1f else 0.55f }
+        clockButton.text = if (state.clockRunning) "❚❚ Chrono" else "▶ Chrono"
+        endPeriodButton.text = state.endPeriodLabel
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,6 +83,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         status = findViewById(R.id.status)
         liveButton = findViewById(R.id.live)
         scorePanel = findViewById(R.id.scorePanel)
+        clockButton = findViewById(R.id.clockToggle)
+        endPeriodButton = findViewById(R.id.endPeriod)
 
         camera = RtmpCamera2(openGlView, this)
         // Tout le son du live passe par le mixeur (musique / micro / bruitages)
@@ -100,13 +106,14 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             }
         }
         mapOf(
-            R.id.homePlus to "home_plus", R.id.homeMinus to "home_minus",
-            R.id.awayPlus to "away_plus", R.id.awayMinus to "away_minus",
-            R.id.undo to "undo",
+            R.id.homePlus to "home_goal", R.id.homeMinus to "home_goal_minus",
+            R.id.awayPlus to "away_goal", R.id.awayMinus to "away_goal_minus",
+            R.id.undo to "undo", R.id.clockToggle to "clock_toggle",
         ).forEach { (id, action) -> findViewById<Button>(id).setOnClickListener { ScoreManager.apply(action) } }
-        findViewById<Button>(R.id.endSet).setOnClickListener { confirmEndSet() }
+        endPeriodButton.setOnClickListener { confirmEndPeriod() }
         mapOf(
-            Scene.INTRO to R.id.sceneIntro, Scene.MATCH to R.id.sceneMatch, Scene.OUTRO to R.id.sceneOutro,
+            Scene.INTRO to R.id.sceneIntro, Scene.MATCH to R.id.sceneMatch,
+            Scene.HALFTIME to R.id.sceneHalftime, Scene.OUTRO to R.id.sceneOutro,
         ).forEach { (scene, id) ->
             val button = findViewById<Button>(id)
             sceneButtons[scene] = button
@@ -252,17 +259,12 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     // ---- Score ----
 
-    private fun confirmEndSet() {
+    private fun confirmEndPeriod() {
         val s = ScoreManager.state
-        if (s.homeScore == s.awayScore) {
-            toast("Égalité : impossible d'attribuer le set")
-            return
-        }
-        val winner = if (s.homeScore > s.awayScore) s.homeName else s.awayName
         AlertDialog.Builder(this)
-            .setTitle("Fin du set ${s.setNumber}")
-            .setMessage("Set gagné par $winner (${s.homeScore}-${s.awayScore}) ?")
-            .setPositiveButton("Valider") { _, _ -> ScoreManager.apply("end_set") }
+            .setTitle(s.endPeriodLabel + " ?")
+            .setMessage("Score : ${s.homeName} ${s.homeGoals} - ${s.awayGoals} ${s.awayName}. Le chrono s'arrête.")
+            .setPositiveButton("Valider") { _, _ -> ScoreManager.apply("end_period") }
             .setNegativeButton("Annuler", null)
             .show()
     }

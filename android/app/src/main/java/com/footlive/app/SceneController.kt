@@ -1,4 +1,4 @@
-package com.volleylive.app
+package com.footlive.app
 
 import android.content.Context
 import android.media.MediaPlayer
@@ -11,12 +11,13 @@ import com.pedro.library.view.GlInterface
 
 /**
  * Gère ce qui est affiché par-dessus la caméra, sous forme de 3 calques OpenGL (du bas vers le haut) :
- *  1. vidéo plein écran (intro en boucle / écran de fin), invisible pendant le match ;
- *  2. overlay : tableau de score en match, résultat sur l'écran de fin ;
- *  3. transition ECVB (vidéo avec transparence), jouée à chaque changement de scène.
+ *  1. vidéo plein écran (intro, mi-temps, fin : en boucle), invisible pendant le match ;
+ *  2. overlay : tableau de score et chrono en match, résultat sur les écrans Mi-temps et Fin ;
+ *  3. transition Maybéléger FC (vidéo avec transparence), jouée à chaque changement de scène.
  *
  * Le changement de scène a lieu au milieu de la transition, quand elle couvre tout l'écran.
- * Gère aussi le son : musique (micro coupé) en intro / fin, micro en match, bruitage des transitions.
+ * Gère aussi le son : musique (micro coupé) en intro / mi-temps / fin, micro en match, bruitage des transitions.
+ * En match, le tableau de score est redessiné dès que le chrono affiché change (chaque seconde).
  * Toutes les méthodes publiques s'appellent depuis le thread principal.
  */
 class SceneController(
@@ -26,6 +27,17 @@ class SceneController(
 ) {
 
     private val main = Handler(Looper.getMainLooper())
+    /** Horloge du chrono, séparée de [main] (dont les messages sont vidés à chaque transition). */
+    private val ticker = Handler(Looper.getMainLooper())
+    private var lastSignature = ""
+    private val tick = object : Runnable {
+        override fun run() {
+            if (shownScene == Scene.MATCH && state.overlayVisible &&
+                renderer.scoreboardSignature(state, ScoreManager.now()) != lastSignature
+            ) refreshOverlay()
+            ticker.postDelayed(this, TICK_MS)
+        }
+    }
 
     private var videoFilter: SurfaceFilterRender? = null
     private var overlayFilter: ImageObjectFilterRender? = null
@@ -54,10 +66,13 @@ class SceneController(
         overlayFilter = overlay
         transitionFilter = transition
         showScene(state.scene)
+        ticker.removeCallbacksAndMessages(null)
+        ticker.post(tick)
     }
 
     fun detach() {
         main.removeCallbacksAndMessages(null)
+        ticker.removeCallbacksAndMessages(null)
         transitioning = false
         videoPlayer?.release()
         videoPlayer = null
@@ -138,7 +153,8 @@ class SceneController(
         audio.musicOn = scene != Scene.MATCH
         when (scene) {
             Scene.INTRO -> playVideo(R.raw.intro, loop = true)
-            Scene.OUTRO -> playVideo(R.raw.outro, loop = false) // s'arrête sur la dernière image
+            Scene.HALFTIME -> playVideo(R.raw.halftime, loop = true)
+            Scene.OUTRO -> playVideo(R.raw.outro, loop = true)
             Scene.MATCH -> {
                 videoFilter?.alpha = 0f
                 videoPlayer?.release()
@@ -149,10 +165,12 @@ class SceneController(
     }
 
     private fun refreshOverlay() {
+        val now = ScoreManager.now()
+        lastSignature = renderer.scoreboardSignature(state, now)
         overlayFilter?.setImage(
             when (shownScene) {
-                Scene.MATCH -> renderer.renderScoreboard(state)
-                Scene.OUTRO -> renderer.renderOutro(state)
+                Scene.MATCH -> renderer.renderScoreboard(state, now)
+                Scene.HALFTIME, Scene.OUTRO -> renderer.renderResult(state)
                 else -> renderer.empty()
             }
         )
@@ -162,7 +180,8 @@ class SceneController(
     private fun onVideoSurfaceReady() {
         when (shownScene) {
             Scene.INTRO -> playVideo(R.raw.intro, loop = true)
-            Scene.OUTRO -> playVideo(R.raw.outro, loop = false)
+            Scene.HALFTIME -> playVideo(R.raw.halftime, loop = true)
+            Scene.OUTRO -> playVideo(R.raw.outro, loop = true)
             else -> {}
         }
     }
@@ -193,5 +212,7 @@ class SceneController(
         /** Changement de scène : les volets couvrent tout l'écran entre 0,3 s et 1,1 s. */
         private const val CUT_MS = 730L
         private const val TIMEOUT_MS = 3000L
+        /** Vérification du chrono : 4 fois par seconde, pour que les secondes s'affichent sans retard. */
+        private const val TICK_MS = 250L
     }
 }

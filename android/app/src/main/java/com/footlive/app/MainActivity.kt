@@ -1,4 +1,4 @@
-package com.volleylive.app
+package com.footlive.app
 
 import android.Manifest
 import android.content.Intent
@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var homeName: EditText
     private lateinit var awayName: EditText
     private lateinit var competition: EditText
+    private lateinit var halfLength: EditText
     private lateinit var quality1080: MaterialSwitch
     private lateinit var twitch: TwitchApi
     private lateinit var twitchSection: View
@@ -77,6 +78,7 @@ class MainActivity : AppCompatActivity() {
         homeName = findViewById(R.id.homeName)
         awayName = findViewById(R.id.awayName)
         competition = findViewById(R.id.competition)
+        halfLength = findViewById(R.id.halfLength)
         quality1080 = findViewById(R.id.quality1080)
         twitch = TwitchApi(prefs)
         twitchSection = findViewById(R.id.twitchSection)
@@ -106,6 +108,7 @@ class MainActivity : AppCompatActivity() {
         homeName.setText(prefs.homeName)
         awayName.setText(prefs.awayName)
         competition.setText(prefs.competition)
+        halfLength.setText(prefs.halfLength.toString())
         quality1080.isChecked = prefs.quality1080
         twitchAutoTitle.isChecked = prefs.twitchAutoTitle
         twitchAutoTitle.setOnCheckedChangeListener { _, checked -> prefs.twitchAutoTitle = checked }
@@ -132,6 +135,11 @@ class MainActivity : AppCompatActivity() {
             serverUrl.error = "L'URL doit commencer par rtmp:// ou rtmps://"
             return
         }
+        val half = halfLength.text.toString().trim().toIntOrNull()
+        if (half == null || half !in 10..45) {
+            halfLength.error = "Entre 10 et 45 minutes"
+            return
+        }
         if (!selected.url.isNullOrEmpty() && key.isEmpty()) {
             streamKey.error = "Clé de diffusion requise"
             return
@@ -144,6 +152,7 @@ class MainActivity : AppCompatActivity() {
         prefs.awayName = awayName.text.toString().trim().ifEmpty { "VISITEUR" }
         prefs.competition = competition.text.toString().trim()
         prefs.quality1080 = quality1080.isChecked
+        prefs.halfLength = half
 
         val missing = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
             .filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
@@ -165,7 +174,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         ScoreManager.init(
-            ScoreState(homeName = prefs.homeName, awayName = prefs.awayName, competition = prefs.competition)
+            ScoreState(
+                homeName = prefs.homeName,
+                awayName = prefs.awayName,
+                competition = prefs.competition,
+                halfLength = prefs.halfLength,
+            )
         )
         startActivity(
             Intent(this, StreamActivity::class.java)

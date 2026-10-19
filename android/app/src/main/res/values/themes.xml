@@ -1,10 +1,10 @@
 <resources>
-    <style name="Theme.VolleyLive" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">#D00A0A</item>
+    <style name="Theme.FootLive" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#343464</item>
         <item name="colorOnPrimary">#FFFFFF</item>
     </style>
 
-    <style name="Theme.VolleyLive.Fullscreen" parent="Theme.VolleyLive">
+    <style name="Theme.FootLive.Fullscreen" parent="Theme.FootLive">
         <item name="android:windowFullscreen">true</item>
     </style>
 

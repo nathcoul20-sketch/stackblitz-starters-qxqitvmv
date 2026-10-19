@@ -1,10 +1,10 @@
-package com.volleylive.app
+package com.footlive.app
 
 import android.content.Context
 
 /** Réglages mémorisés entre deux utilisations de l'application. */
 class Prefs(context: Context) {
-    private val sp = context.getSharedPreferences("volleylive", Context.MODE_PRIVATE)
+    private val sp = context.getSharedPreferences("footlive", Context.MODE_PRIVATE)
 
     /** Nom de la plateforme choisie (« Twitch » par défaut). */
     var platform: String
@@ -20,7 +20,7 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putString("streamKey", v).apply()
 
     var homeName: String
-        get() = sp.getString("homeName", "ECVB") ?: "ECVB"
+        get() = sp.getString("homeName", "MAYBÉLÉGER FC") ?: "MAYBÉLÉGER FC"
         set(v) = sp.edit().putString("homeName", v).apply()
 
     var awayName: String
@@ -28,8 +28,13 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putString("awayName", v).apply()
 
     var competition: String
-        get() = sp.getString("competition", "Championnat Régional Masculin") ?: ""
+        get() = sp.getString("competition", "Départemental 2") ?: ""
         set(v) = sp.edit().putString("competition", v).apply()
+
+    /** Durée d'une mi-temps en minutes. */
+    var halfLength: Int
+        get() = sp.getInt("halfLength", 45)
+        set(v) = sp.edit().putInt("halfLength", v).apply()
 
     var quality1080: Boolean
         get() = sp.getBoolean("quality1080", false)

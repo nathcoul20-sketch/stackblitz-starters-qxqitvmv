@@ -1,11 +1,11 @@
-# Générateur de la transition ECVB
+# Générateur de la transition Maybéléger FC
 
 `gen.py` dessine la transition image par image (PNG 1920x1080 avec transparence).
 Styles : `shutter` (utilisé dans l'appli) et `slash`.
 
 ```bash
 mkdir -p out
-python3 gen.py out shutter logo_ecvb.png
+python3 gen.py out shutter ../visuels/logo_mbl_hd.png
 # Vidéo « côte à côte » attendue par l'appli : couleurs à gauche, transparence à droite
 ffmpeg -framerate 30 -i out/frame_%03d.png -filter_complex \
   "[0:v]scale=960:540:flags=lanczos,format=rgba,split[c][a];[c]format=yuv420p[cc];[a]format=rgba,alphaextract,format=yuv420p[aa];[cc][aa]hstack=inputs=2,format=yuv420p" \

@@ -1,4 +1,4 @@
-package com.volleylive.app
+package com.footlive.app
 
 import android.content.Context
 import fi.iki.elonen.NanoHTTPD
@@ -37,12 +37,14 @@ class RemoteServer(
                 "/api/action" -> authorized(params) {
                     if (session.method != Method.POST) return@authorized error(Response.Status.METHOD_NOT_ALLOWED, "POST requis")
                     val action = params["a"] ?: return@authorized error(Response.Status.BAD_REQUEST, "Action manquante")
-                    if (!ScoreManager.apply(action)) return@authorized error(Response.Status.BAD_REQUEST, "Action refusée")
+                    if (!ScoreManager.apply(action, params["v"], params["i"]?.toIntOrNull())) return@authorized error(Response.Status.BAD_REQUEST, "Action refusée")
                     stateResponse()
                 }
                 "/api/config" -> authorized(params) {
                     if (session.method != Method.POST) return@authorized error(Response.Status.METHOD_NOT_ALLOWED, "POST requis")
-                    ScoreManager.configure(params["home"], params["away"], params["competition"])
+                    ScoreManager.configure(
+                        params["home"], params["away"], params["competition"], params["half"]?.toIntOrNull(),
+                    )
                     stateResponse()
                 }
                 else -> error(Response.Status.NOT_FOUND, "Introuvable")
@@ -56,7 +58,7 @@ class RemoteServer(
         if (params["pin"] == pin) block() else error(Response.Status.UNAUTHORIZED, "Code PIN incorrect")
 
     private fun stateResponse(): Response {
-        val json = ScoreManager.state.toJson()
+        val json = ScoreManager.state.toJson(ScoreManager.now())
             .put("version", ScoreManager.version)
             .put("pageVersion", pageVersion)
         return json(Response.Status.OK, json)

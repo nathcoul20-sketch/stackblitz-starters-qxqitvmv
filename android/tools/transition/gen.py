@@ -1,4 +1,4 @@
-"""Génère des transitions (stingers) ECVB image par image, avec transparence.
+"""Génère des transitions (stingers) Maybéléger FC image par image, avec transparence.
 
 Usage : python3 gen.py <dossier_sortie> <style: slash|shutter> <logo.png>
 Écrit frame_000.png ... (RGBA 1920x1080) et cut.txt (image où l'écran est entièrement couvert).
@@ -11,9 +11,10 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 W, H = 1920, 1080
 FPS = 30
-RED = (200, 10, 14, 255)
-DARK_RED = (120, 4, 8, 255)
-BLACK = (14, 14, 14, 255)
+# Couleurs Maybéléger FC (le « rouge » des volets est devenu le jaune du club)
+RED = (255, 241, 0, 255)
+DARK_RED = (196, 176, 0, 255)
+BLACK = (8, 8, 8, 255)
 WHITE = (255, 255, 255, 255)
 YELLOW = (255, 210, 0, 255)
 SLANT = int(H * 0.38)  # inclinaison des bandes
@@ -41,8 +42,8 @@ def band(draw, left, right, color):
     draw.polygon([(left + SLANT, 0), (right + SLANT, 0), (right, H), (left, H)], fill=color)
 
 
-def streak_texture(seed=4):
-    """Traits de vitesse clairs, inclinés comme les bandes (texture pour le rouge)."""
+def streak_texture(seed=4, white_ratio=0.3):
+    """Traits de vitesse, inclinés comme les bandes (texture pour le volet jaune)."""
     rnd = random.Random(seed)
     tex = Image.new("RGBA", (W * 2, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(tex)
@@ -52,7 +53,7 @@ def streak_texture(seed=4):
         length = rnd.uniform(200, 900)
         thick = rnd.choice([2, 3, 4, 6, 10, 18])
         a = rnd.randint(25, 90)
-        col = (255, 255, 255, a) if rnd.random() < 0.7 else (0, 0, 0, a + 40)
+        col = (255, 255, 255, a + 60) if rnd.random() < white_ratio else (0, 0, 0, a)
         dx = SLANT / H * thick
         d.polygon([(x, y), (x + length, y), (x + length - dx, y + thick), (x - dx, y + thick)], fill=col)
     return tex.filter(ImageFilter.GaussianBlur(1.5))

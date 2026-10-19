@@ -47,6 +47,12 @@
             android:text="Match" />
 
         <Button
+            android:id="@+id/sceneHalftime"
+            style="@style/ControlButton"
+            android:layout_width="120dp"
+            android:text="Mi-temps" />
+
+        <Button
             android:id="@+id/sceneOutro"
             style="@style/ControlButton"
             android:layout_width="120dp"
@@ -98,10 +104,11 @@
         android:visibility="gone">
 
         <Button android:id="@+id/homeMinus" style="@style/ScoreButton" android:text="−" />
-        <Button android:id="@+id/homePlus" style="@style/ScoreButton" app:backgroundTint="#D00A0A" android:text="+1" />
+        <Button android:id="@+id/homePlus" style="@style/ScoreButton" android:layout_width="wrap_content" app:backgroundTint="#FFF100" android:textColor="#000000" android:text="But" />
+        <Button android:id="@+id/clockToggle" style="@style/ScoreButton" android:layout_width="wrap_content" android:text="▶ Chrono" />
         <Button android:id="@+id/undo" style="@style/ScoreButton" android:layout_width="wrap_content" android:text="Annuler" />
-        <Button android:id="@+id/endSet" style="@style/ScoreButton" android:layout_width="wrap_content" android:text="Fin du set" />
-        <Button android:id="@+id/awayPlus" style="@style/ScoreButton" app:backgroundTint="#8F8F8F" android:text="+1" />
+        <Button android:id="@+id/endPeriod" style="@style/ScoreButton" android:layout_width="wrap_content" android:text="Fin de période" />
+        <Button android:id="@+id/awayPlus" style="@style/ScoreButton" android:layout_width="wrap_content" app:backgroundTint="#343464" android:text="But" />
         <Button android:id="@+id/awayMinus" style="@style/ScoreButton" android:text="−" />
     </LinearLayout>
 </FrameLayout>

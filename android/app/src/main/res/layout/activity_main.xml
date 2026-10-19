@@ -160,6 +160,20 @@
                 android:maxLength="60" />
         </com.google.android.material.textfield.TextInputLayout>
 
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Durée d'une mi-temps (minutes)">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/halfLength"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:maxLength="2" />
+        </com.google.android.material.textfield.TextInputLayout>
+
         <Button
             android:id="@+id/start"
             android:layout_width="match_parent"
@@ -172,7 +186,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Le score repart de 0 à chaque ouverture de la caméra. Les noms peuvent aussi être modifiés depuis la télécommande pendant le match."
+            android:text="Le score et le chrono repartent de 0 à chaque ouverture de la caméra. Les noms et la durée des mi-temps peuvent aussi être modifiés depuis la télécommande."
             android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>
