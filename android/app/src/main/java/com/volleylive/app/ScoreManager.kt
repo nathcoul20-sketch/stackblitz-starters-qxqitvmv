@@ -57,6 +57,11 @@ object ScoreManager {
             "serve_away" -> s.copy(serving = Team.AWAY)
             "toggle_overlay" -> s.copy(overlayVisible = !s.overlayVisible)
             // Changement de scène : pas d'historique (« Annuler » ne concerne que le score)
+            // Son du live : pas d'historique non plus
+            "toggle_mute" -> {
+                commit(s.copy(audioMuted = !s.audioMuted))
+                return true
+            }
             "scene_intro", "scene_match", "scene_outro" -> {
                 val scene = Scene.valueOf(action.removePrefix("scene_").uppercase())
                 if (scene != s.scene) commit(s.copy(scene = scene))
@@ -68,10 +73,11 @@ object ScoreManager {
                 competition = s.competition,
                 overlayVisible = s.overlayVisible,
                 scene = s.scene,
+                audioMuted = s.audioMuted,
             )
             "undo" -> {
                 // On garde la scène actuelle : annuler un point ne doit pas changer d'écran
-                val previous = history.removeLastOrNull()?.copy(scene = s.scene) ?: return false
+                val previous = history.removeLastOrNull()?.copy(scene = s.scene, audioMuted = s.audioMuted) ?: return false
                 state = previous
                 version++
                 notifyListeners(previous)

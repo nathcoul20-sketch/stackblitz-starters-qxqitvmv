@@ -29,6 +29,8 @@
   .conn.ko::before { content: "● "; color: #ff4d4d; }
 
   .label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .mute { width: 100%; margin-bottom: 12px; font-weight: 700; background: var(--panel); border: 2px solid #333; }
+  .mute.on { background: var(--home); border-color: var(--home); }
   .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
   .scenes button { background: var(--panel); border: 2px solid #333; font-weight: 700; }
   .scenes button.active { background: #fff; color: #111; border-color: #fff; }
@@ -86,6 +88,8 @@
   <div class="setno" id="setNo">1er set</div>
   <div class="conn" id="conn">Connexion…</div>
 </div>
+
+<button id="muteBtn" data-a="toggle_mute" class="mute">🔊 Son du live : activé</button>
 
 <div class="label">Écran diffusé</div>
 <div class="scenes">
@@ -182,6 +186,8 @@
     document.querySelectorAll('[data-scene]').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-scene') === s.scene);
     });
+    $('muteBtn').textContent = s.audioMuted ? '🔇 Son du live : COUPÉ (toucher pour remettre)' : '🔊 Son du live : activé (toucher pour couper)';
+    $('muteBtn').classList.toggle('on', !!s.audioMuted);
     $('overlayBtn').textContent = s.overlayVisible ? "Masquer l'overlay" : "Afficher l'overlay";
     if (firstLoad || document.activeElement.tagName !== 'INPUT') {
       $('cfgHome').value = s.homeName;

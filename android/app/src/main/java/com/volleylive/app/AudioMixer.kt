@@ -24,6 +24,10 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
     /** true : musique, micro coupé. false : micro seul. */
     @Volatile var musicOn = false
 
+    /** true : plus aucun son dans le live (coupure d'urgence), en fondu rapide. */
+    @Volatile var muted = false
+    private var masterGain = 1f
+
     private var musicGain = 0f
     private var micGain = 1f
     private val music = ShortRing(SAMPLE_RATE * CHANNELS * 2) // ~2 s d'avance
@@ -59,6 +63,7 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
         val count = samples.remaining()
         val musicTarget = if (musicOn) 1f else 0f
         val micTarget = 1f - musicTarget
+        val masterTarget = if (muted) 0f else 1f
 
         // La musique n'avance que lorsqu'elle est audible : elle reprend là où elle s'était arrêtée
         val needMusic = musicOn || musicGain > 0f
@@ -73,7 +78,12 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
             val mic = samples.get(i) * micGain
             val m = if (i < got) musicBlock[i] * musicGain * MUSIC_VOLUME else 0f
             val s = if (fx < sfx.size) sfx[fx++] * SFX_VOLUME else 0f
-            samples.put(i, (mic + m + s).toInt().coerceIn(-32768, 32767).toShort())
+            masterGain = when {
+                masterGain < masterTarget -> minOf(masterTarget, masterGain + MUTE_STEP)
+                masterGain > masterTarget -> maxOf(masterTarget, masterGain - MUTE_STEP)
+                else -> masterGain
+            }
+            samples.put(i, ((mic + m + s) * masterGain).toInt().coerceIn(-32768, 32767).toShort())
         }
         // (si playTransitionSound() a été appelé pendant ce bloc, on garde sa remise à zéro)
         if (sfxPos == startFx) sfxPos = fx
@@ -153,6 +163,8 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
         /** Fondu micro ↔ musique en ~0,8 s. */
         private const val FADE_STEP = 1f / (SAMPLE_RATE * CHANNELS * 0.8f)
         private const val MUSIC_VOLUME = 0.8f
+        /** Coupure / remise du son en ~0,1 s (évite un « clic »). */
+        private const val MUTE_STEP = 1f / (SAMPLE_RATE * CHANNELS * 0.1f)
         private const val SFX_VOLUME = 1f
     }
 }

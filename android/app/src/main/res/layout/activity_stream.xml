@@ -79,6 +79,11 @@
             android:text="Score" />
 
         <Button
+            android:id="@+id/mute"
+            style="@style/ControlButton"
+            android:text="🔊 Son" />
+
+        <Button
             android:id="@+id/switchCamera"
             style="@style/ControlButton"
             android:text="Caméra ⇄" />

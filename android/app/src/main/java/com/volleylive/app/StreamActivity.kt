@@ -1,5 +1,7 @@
 package com.volleylive.app
 
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.SurfaceHolder
@@ -39,6 +41,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private lateinit var scorePanel: View
 
     private val sceneButtons = mutableMapOf<Scene, Button>()
+    private lateinit var muteButton: Button
     private var server: RemoteServer? = null
     private var facing = CameraHelper.Facing.BACK
 
@@ -54,6 +57,10 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private val scoreListener: (ScoreState) -> Unit = { state ->
         scenes.onState(state)
         sceneButtons.forEach { (scene, button) -> button.alpha = if (scene == state.scene) 1f else 0.55f }
+        muteButton.text = if (state.audioMuted) "🔇 Son coupé" else "🔊 Son"
+        muteButton.backgroundTintList = ColorStateList.valueOf(
+            if (state.audioMuted) Color.parseColor("#D00A0A") else Color.parseColor("#CC333333")
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,6 +98,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         findViewById<Button>(R.id.scorePanelToggle).setOnClickListener {
             scorePanel.visibility = if (scorePanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
         }
+        muteButton = findViewById(R.id.mute)
+        muteButton.setOnClickListener { ScoreManager.apply("toggle_mute") }
         findViewById<Button>(R.id.switchCamera).setOnClickListener {
             try {
                 camera.switchCamera()

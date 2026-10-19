@@ -21,6 +21,8 @@ data class ScoreState(
     val serving: Team? = null,
     val overlayVisible: Boolean = true,
     val scene: Scene = Scene.INTRO,
+    /** Son du live coupé (bouton « Couper le son »). */
+    val audioMuted: Boolean = false,
     /** Scores des sets terminés, dans l'ordre (domicile, extérieur). */
     val setScores: List<Pair<Int, Int>> = emptyList(),
 ) {
@@ -48,6 +50,7 @@ data class ScoreState(
         put("overlayVisible", overlayVisible)
         put("setWinner", setWinner?.name?.lowercase() ?: JSONObject.NULL)
         put("scene", scene.name.lowercase())
+        put("audioMuted", audioMuted)
         put("setScores", JSONArray(setScores.map { JSONArray(listOf(it.first, it.second)) }))
     }
 }

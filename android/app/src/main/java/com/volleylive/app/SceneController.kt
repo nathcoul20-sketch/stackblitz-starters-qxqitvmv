@@ -72,6 +72,7 @@ class SceneController(
 
     fun onState(s: ScoreState) {
         state = s
+        audio.muted = s.audioMuted
         if (overlayFilter == null) return
         if (!transitioning && s.scene != shownScene) startTransition() else refreshOverlay()
     }
