@@ -7,6 +7,9 @@ on:
       - ".github/workflows/android.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -32,3 +35,14 @@ jobs:
         with:
           name: FootLive-apk
           path: android/app/build/outputs/apk/release/*.apk
+
+      # Lien de téléchargement direct (page « Releases » du dépôt), plus simple depuis un téléphone
+      - name: Publier l'APK (release foot-live)
+        if: github.ref == 'refs/heads/claude/foot-live-maybeleger'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/release/*.apk FootLive.apk
+          gh release view foot-live >/dev/null 2>&1 || gh release create foot-live --target "$GITHUB_SHA" --prerelease \
+            --title "Foot Live — Maybéléger FC" --notes "APK de l'appli Foot Live. Sur le téléphone : télécharger FootLive.apk, l'ouvrir, autoriser l'installation."
+          gh release upload foot-live FootLive.apk --clobber
