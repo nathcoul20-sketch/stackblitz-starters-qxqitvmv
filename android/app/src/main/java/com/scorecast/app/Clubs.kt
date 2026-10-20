@@ -13,7 +13,7 @@ enum class MediaSlot(val id: String, val label: String, val help: String, val is
     INTRO("intro", "Écran d'intro", "Diffusé en boucle avant le match."),
     HALFTIME("halftime", "Écran de pause / mi-temps", "Diffusé en boucle pendant la pause, avec le score par-dessus."),
     OUTRO("outro", "Écran de fin", "Diffusé en boucle après le match, avec le résultat par-dessus."),
-    TRANSITION("transition", "Transition", "Jouée à chaque changement d'écran ; l'écran change au milieu de la vidéo."),
+    TRANSITION("transition", "Transition", "Jouée à chaque changement d'écran ; l'écran change au milieu de la vidéo. Sans import, ScoreCast joue une transition aux couleurs du club."),
     MUSIC("music", "Musique d'attente", "Remplace le son du micro sur les écrans d'intro, de pause et de fin.", isAudio = true);
 
     companion object {

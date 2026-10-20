@@ -18,7 +18,7 @@ import kotlin.concurrent.thread
 /**
  * Espace « Écrans & vidéos » d'un club : import facultatif de l'intro, de l'écran de pause,
  * de l'écran de fin, de la transition et de la musique d'attente.
- * Sans import, le live utilise des écrans générés aux couleurs du club et change d'écran directement.
+ * Sans import, le live utilise des écrans et une transition générés aux couleurs du club.
  */
 class MediaActivity : AppCompatActivity() {
 
@@ -149,7 +149,7 @@ class MediaActivity : AppCompatActivity() {
                 status.setTextColor(getColor(R.color.sc_text))
             } else {
                 status.text = when (slot) {
-                    MediaSlot.TRANSITION -> "Aucune : l'écran change directement"
+                    MediaSlot.TRANSITION -> "Aucune importée : transition aux couleurs du club (volets + logo)"
                     MediaSlot.MUSIC -> "Aucune : le son du micro est conservé"
                     else -> "Aucun : écran aux couleurs du club (aperçu ci-dessus)"
                 }
@@ -163,11 +163,53 @@ class MediaActivity : AppCompatActivity() {
                 }
             }
             row.findViewById<MaterialButton>(R.id.remove).apply {
-                visibility = if (file != null) View.VISIBLE else View.GONE
-                setOnClickListener { remove(slot) }
+                if (file == null && slot == MediaSlot.TRANSITION) {
+                    // Pas de transition importée : on peut voir celle générée aux couleurs du club
+                    text = "Aperçu"
+                    visibility = View.VISIBLE
+                    setOnClickListener { previewGeneratedTransition() }
+                } else {
+                    text = "Retirer"
+                    visibility = if (file != null) View.VISIBLE else View.GONE
+                    setOnClickListener { remove(slot) }
+                }
             }
             list.addView(row)
         }
+    }
+
+    /** Joue la transition générée par-dessus l'écran d'intro, dans une petite fenêtre. */
+    private fun previewGeneratedTransition() {
+        val logo = repo.logo(club)
+        val sample = Previews.sampleState(AppPrefs(this).sport, club.name, club.primary, club.secondary)
+        val background = Previews.screen(this, sample, Scene.INTRO, logo)
+        val renderer = TransitionRenderer(this, 640, 360, logo)
+        val frame = android.graphics.Bitmap.createBitmap(640, 360, android.graphics.Bitmap.Config.ARGB_8888)
+        val layer = android.graphics.Bitmap.createBitmap(640, 360, android.graphics.Bitmap.Config.ARGB_8888)
+        val image = ImageView(this).apply { adjustViewBounds = true; setImageBitmap(background) }
+        val handler = android.os.Handler(mainLooper)
+        val start = android.os.SystemClock.uptimeMillis()
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Transition aux couleurs du club")
+            .setView(image)
+            .setPositiveButton("Fermer", null)
+            .create()
+        val tick = object : Runnable {
+            override fun run() {
+                // Rejoue en boucle : 1,7 s d'animation puis 0,8 s de pause
+                val t = (android.os.SystemClock.uptimeMillis() - start) % (TransitionRenderer.DURATION_MS + 800)
+                renderer.draw(layer, t * TransitionRenderer.FPS / 1000f, club.primary, club.secondary, club.name)
+                val c = android.graphics.Canvas(frame)
+                c.drawBitmap(background, null, android.graphics.Rect(0, 0, 640, 360), null)
+                c.drawBitmap(layer, 0f, 0f, null)
+                image.setImageBitmap(frame)
+                image.invalidate()
+                handler.postDelayed(this, 33)
+            }
+        }
+        dialog.setOnDismissListener { handler.removeCallbacksAndMessages(null) }
+        dialog.show()
+        handler.post(tick)
     }
 
     private fun import(slot: MediaSlot, uri: Uri) {
