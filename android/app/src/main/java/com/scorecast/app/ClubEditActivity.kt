@@ -88,6 +88,10 @@ class ClubEditActivity : AppCompatActivity() {
         findViewById<View>(R.id.media).setOnClickListener {
             if (saveClub()) startActivity(Intent(this, MediaActivity::class.java).putExtra(EXTRA_CLUB_ID, club.id))
         }
+        findViewById<View>(R.id.share).apply {
+            visibility = if (isNew) View.GONE else View.VISIBLE
+            setOnClickListener { if (saveClub()) shareClub() }
+        }
         findViewById<View>(R.id.delete).apply {
             visibility = if (isNew) View.GONE else View.VISIBLE
             setOnClickListener { confirmDelete() }
@@ -167,6 +171,45 @@ class ClubEditActivity : AppCompatActivity() {
             startActivity(Intent(this, PlatformActivity::class.java).putExtra(EXTRA_CLUB_ID, club.id))
         }
         finish()
+    }
+
+    /** Affiche le QR code à scanner depuis l'autre téléphone (ScoreCast → Votre club → Recevoir). */
+    private fun shareClub() {
+        @Suppress("DEPRECATION")
+        val progress = android.app.ProgressDialog(this).apply {
+            setMessage("Préparation…")
+            setCancelable(false)
+            show()
+        }
+        thread {
+            val result = runCatching { ClubShare.startSending(this, repo, club) }
+            runOnUiThread {
+                progress.dismiss()
+                val pair = result.getOrNull()
+                if (pair == null) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Pas de réseau local")
+                        .setMessage(result.exceptionOrNull()?.message?.let { "Erreur : $it" }
+                            ?: "Connectez les deux téléphones au même Wi-Fi (ou l'un au point d'accès de l'autre), puis réessayez.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                    return@runOnUiThread
+                }
+                val (sender, qrText) = pair
+                val view = layoutInflater.inflate(R.layout.dialog_remote, null)
+                view.findViewById<ImageView>(R.id.qr).setImageBitmap(NetworkUtils.qrCode(qrText))
+                view.findViewById<TextView>(R.id.info).text =
+                    "Sur l'autre téléphone : ScoreCast → choisir un sport → « Recevoir un club », puis scannez ce QR code.\n\n" +
+                        "Les deux téléphones doivent être sur le même Wi-Fi (ou l'un connecté au point d'accès de l'autre).\n\n" +
+                        "Tout est copié : nom, couleurs, logo, partenaires, vidéos, plateforme et clé de diffusion."
+                AlertDialog.Builder(this)
+                    .setTitle("Envoyer ${club.name}")
+                    .setView(view)
+                    .setPositiveButton("Terminé", null)
+                    .setOnDismissListener { sender.stop() }
+                    .show()
+            }
+        }
     }
 
     private fun confirmDelete() {

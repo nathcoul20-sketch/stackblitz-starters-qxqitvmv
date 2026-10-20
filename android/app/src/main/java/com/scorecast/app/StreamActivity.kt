@@ -1,6 +1,13 @@
 package com.scorecast.app
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.res.ColorStateList
+import android.os.BatteryManager
 import android.os.Bundle
+import com.pedro.library.util.BitrateAdapter
 import android.view.LayoutInflater
 import android.view.SurfaceHolder
 import android.view.View
@@ -27,6 +34,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         const val EXTRA_URL = "url"
         const val EXTRA_BACKUP_URL = "backupUrl"
         private const val MAX_RETRIES = 10
+        /** Au-delà (°C de la batterie), on prévient que le téléphone chauffe. */
+        private const val HOT_TEMP = 43f
         const val EXTRA_1080P = "1080p"
     }
 
@@ -40,6 +49,25 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private var clockButton: Button? = null
     private lateinit var endPeriodButton: Button
     private lateinit var muteButton: Button
+    private lateinit var qualityButton: Button
+    private lateinit var deviceInfo: TextView
+
+    /** Qualité d'image : « Auto » s'adapte au réseau, les autres sont des débits fixes. */
+    private enum class Quality(val label: String, val factor: Float) {
+        AUTO("Auto", 1f), HIGH("Haute", 1f), MEDIUM("Moyenne", 0.6f), LOW("Basse", 0.35f)
+    }
+    private var quality = Quality.AUTO
+    private var weakCount = 0
+    private lateinit var bitrateAdapter: BitrateAdapter
+
+    // Alertes batterie / chauffe : une seule fois par seuil
+    private var warned15 = false
+    private var warned5 = false
+    private var warnedHot = false
+
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = onBattery(intent)
+    }
 
     private val sceneButtons = mutableMapOf<Scene, Button>()
     private var server: RemoteServer? = null
@@ -50,6 +78,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private var retryCount = 0
     private var videoWidth = 1280
     private var videoHeight = 720
+    /** Débit maximal (qualité « Haute ») : 2,5 Mb/s en 720p, 4,5 Mb/s en 1080p. */
     private var videoBitrate = 2_500_000
 
     private val pin by lazy { AppPrefs(this).pin }
@@ -76,18 +105,37 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
         url = intent.getStringExtra(EXTRA_URL) ?: ""
         backupUrl = intent.getStringExtra(EXTRA_BACKUP_URL) ?: ""
-        if (intent.getBooleanExtra(EXTRA_1080P, false)) {
+        var clubId = intent.getStringExtra(com.scorecast.app.EXTRA_CLUB_ID)
+        var q1080 = intent.getBooleanExtra(EXTRA_1080P, false)
+        // L'appli a été fermée puis relancée par Android directement sur cet écran : on reprend
+        // le match sauvegardé (sinon le score repartirait de zéro)
+        if (ScoreManager.version == 0L) {
+            MatchStore.load(this)?.let { saved ->
+                ScoreManager.init(saved.state)
+                url = saved.session.url
+                backupUrl = saved.session.backupUrl
+                clubId = saved.session.clubId
+                q1080 = saved.session.q1080
+                toast("Match en cours repris")
+            }
+        }
+        MatchStore.start(this, MatchStore.Session(clubId ?: "", url, backupUrl, q1080))
+        if (q1080) {
             videoWidth = 1920
             videoHeight = 1080
             videoBitrate = 4_500_000
         }
         val repo = ClubRepository(this)
-        val club = repo.get(intent.getStringExtra(com.scorecast.app.EXTRA_CLUB_ID))
+        val club = repo.get(clubId)
         val media = club?.let { c -> MediaSlot.entries.mapNotNull { slot -> repo.mediaFile(c, slot)?.let { slot to it } }.toMap() }
             ?: emptyMap()
         audioMixer = AudioMixer(media[MediaSlot.MUSIC])
         val logo = club?.let { repo.logo(it) }
-        scenes = SceneController(OverlayRenderer(this, videoWidth, videoHeight, logo), audioMixer, media)
+        val partners = club?.let { repo.partnerLogos(it) } ?: emptyList()
+        DeviceStatus.partnerCount = partners.size
+        scenes = SceneController(OverlayRenderer(this, videoWidth, videoHeight, logo, partners), audioMixer, media)
+        bitrateAdapter = BitrateAdapter { bitrate -> camera.setVideoBitrateOnFly(bitrate) }
+        bitrateAdapter.setMaxBitrate(videoBitrate)
 
         openGlView = findViewById(R.id.preview)
         status = findViewById(R.id.status)
@@ -100,6 +148,10 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         camera.setCustomAudioEffect(audioMixer)
         openGlView.holder.addCallback(this)
 
+        deviceInfo = findViewById(R.id.deviceInfo)
+        qualityButton = findViewById(R.id.quality)
+        qualityButton.setOnClickListener { chooseQuality() }
+        updateQualityUi()
         muteButton = findViewById(R.id.mute)
         muteButton.setOnClickListener { ScoreManager.apply("toggle_mute") }
         liveButton.isEnabled = url.isNotEmpty()
@@ -130,8 +182,14 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             override fun handleOnBackPressed() {
                 AlertDialog.Builder(this@StreamActivity)
                     .setTitle("Quitter ?")
-                    .setMessage(if (camera.isStreaming) "Le live sera arrêté et le score remis à zéro." else "Le score sera remis à zéro.")
-                    .setPositiveButton("Quitter") { _, _ -> finish() }
+                    .setMessage(
+                        (if (camera.isStreaming) "Le live sera arrêté. " else "") +
+                            "Le match sera terminé : il ne pourra plus être repris."
+                    )
+                    .setPositiveButton("Quitter") { _, _ ->
+                        MatchStore.clear(this@StreamActivity)
+                        finish()
+                    }
                     .setNegativeButton("Annuler", null)
                     .show()
             }
@@ -139,9 +197,13 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
         startRemoteServer()
         ScoreManager.addListener(scoreListener)
+        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.let { onBattery(it) }
     }
 
     override fun onDestroy() {
+        runCatching { unregisterReceiver(batteryReceiver) }
+        DeviceStatus.live = false
+        DeviceStatus.bitrate = 0
         ScoreManager.removeListener(scoreListener)
         scenes.detach()
         audioMixer.release()
@@ -155,7 +217,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     private fun prepareEncoders(): Boolean {
         val rotation = CameraHelper.getCameraOrientation(this)
-        return camera.prepareVideo(videoWidth, videoHeight, 30, videoBitrate, rotation) &&
+        return camera.prepareVideo(videoWidth, videoHeight, 30, currentBitrate(), rotation) &&
             camera.prepareAudio(128_000, 44_100, true)
     }
 
@@ -200,6 +262,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             return
         }
         retryCount = 0
+        weakCount = 0
+        bitrateAdapter.reset()
         camera.getStreamClient().setReTries(MAX_RETRIES)
         camera.startStream(url)
         status.text = "Connexion…"
@@ -208,7 +272,13 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     private fun updateLiveUi() {
         liveButton.text = if (camera.isStreaming) "■ STOP" else "● LIVE"
-        if (!camera.isStreaming) status.text = "Hors ligne"
+        DeviceStatus.live = camera.isStreaming
+        if (!camera.isStreaming) {
+            status.text = "Hors ligne"
+            status.backgroundTintList = null
+            DeviceStatus.bitrate = 0
+            DeviceStatus.weakNetwork = false
+        }
     }
 
     override fun onConnectionStarted(url: String) {}
@@ -248,9 +318,113 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     }
 
     override fun onNewBitrate(bitrate: Long) = runOnUiThread {
-        if (camera.isStreaming) {
-            status.text = String.format(Locale.FRANCE, "● EN DIRECT · %.1f Mb/s", bitrate / 1_000_000.0)
+        if (!camera.isStreaming) return@runOnUiThread
+        val congestion = runCatching { camera.getStreamClient().hasCongestion() }.getOrDefault(false)
+        // Qualité « Auto » : le débit baisse quand le réseau sature, puis remonte
+        if (quality == Quality.AUTO) bitrateAdapter.adaptBitrate(bitrate, congestion)
+        // Réseau faible : saturation, ou débit très en dessous de ce qui est demandé, plusieurs secondes de suite
+        val target = currentBitrate()
+        val weak = congestion || bitrate < target * (if (quality == Quality.AUTO) 0.4 else 0.6)
+        weakCount = if (weak) weakCount + 1 else 0
+        val isWeak = weakCount >= 3
+        DeviceStatus.bitrate = bitrate
+        DeviceStatus.weakNetwork = isWeak
+        val mbps = String.format(Locale.FRANCE, "%.1f Mb/s", bitrate / 1_000_000.0)
+        if (isWeak) {
+            status.text = "⚠ RÉSEAU FAIBLE · $mbps" + if (quality == Quality.HIGH) "\nPassez en qualité Auto ou Basse" else ""
+            status.backgroundTintList = ColorStateList.valueOf(0xE6C62828.toInt())
+        } else {
+            status.text = "● EN DIRECT · $mbps"
+            status.backgroundTintList = null
         }
+    }
+
+    // ---- Qualité d'image ----
+
+    private fun currentBitrate(): Int = (videoBitrate * quality.factor).toInt()
+
+    private fun chooseQuality() {
+        val labels = Quality.entries.map {
+            when (it) {
+                Quality.AUTO -> "Auto (s'adapte au réseau, conseillé)"
+                else -> String.format(Locale.FRANCE, "%s (%.1f Mb/s)", it.label, videoBitrate * it.factor / 1_000_000.0)
+            }
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Qualité du live")
+            .setSingleChoiceItems(labels, quality.ordinal) { dialog, which ->
+                quality = Quality.entries[which]
+                applyQuality()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
+    /** Change le débit sans couper le live. */
+    private fun applyQuality() {
+        weakCount = 0
+        bitrateAdapter.reset()
+        bitrateAdapter.setMaxBitrate(videoBitrate)
+        if (camera.isStreaming) runCatching { camera.setVideoBitrateOnFly(currentBitrate()) }
+        updateQualityUi()
+        toast("Qualité : ${quality.label}")
+    }
+
+    private fun updateQualityUi() {
+        qualityButton.text = "Qualité : ${quality.label}"
+        DeviceStatus.quality = quality.label
+    }
+
+    // ---- Batterie et chauffe ----
+
+    private fun onBattery(intent: Intent) {
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+        val pct = if (level >= 0) level * 100 / scale else -1
+        val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
+        val temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10f
+        DeviceStatus.battery = pct
+        DeviceStatus.charging = plugged
+        DeviceStatus.temperature = temp
+        if (pct < 0) return
+        val hot = temp >= HOT_TEMP
+        deviceInfo.text = String.format(Locale.FRANCE, "%s %d %%  ·  %s%.0f °C",
+            if (plugged) "🔌" else "🔋", pct, if (hot) "🔥 " else "🌡 ", temp)
+        deviceInfo.backgroundTintList = when {
+            !plugged && pct <= 15 -> ColorStateList.valueOf(0xE6C62828.toInt())
+            hot -> ColorStateList.valueOf(0xE6E65100.toInt())
+            !plugged && pct <= 30 -> ColorStateList.valueOf(0xE6B26A00.toInt())
+            else -> null
+        }
+        if (plugged) {
+            // En charge : les alertes pourront se redéclencher si on débranche plus tard
+            if (pct > 15) warned15 = false
+            if (pct > 5) warned5 = false
+        } else {
+            if (pct <= 5 && !warned5) {
+                warned5 = true; warned15 = true
+                alert("Batterie presque vide ($pct %)", "Le téléphone va bientôt s'éteindre. Branchez-le maintenant sur un chargeur ou une batterie externe.")
+            } else if (pct <= 15 && !warned15) {
+                warned15 = true
+                alert("Batterie faible ($pct %)", "Branchez une batterie externe pour ne pas couper le live. Le match est sauvegardé en continu.")
+            }
+        }
+        if (hot && !warnedHot) {
+            warnedHot = true
+            alert(
+                "Le téléphone chauffe (${temp.toInt()} °C)",
+                "Mettez-le à l'ombre, retirez sa coque si possible, et passez en qualité « Basse » ou « Moyenne ». " +
+                    "Un téléphone trop chaud peut couper la caméra.",
+            )
+        } else if (temp < HOT_TEMP - 3) {
+            warnedHot = false
+        }
+    }
+
+    private fun alert(title: String, message: String) {
+        if (isFinishing || isDestroyed) return
+        AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("OK", null).show()
     }
 
     override fun onDisconnect() = runOnUiThread { updateLiveUi() }

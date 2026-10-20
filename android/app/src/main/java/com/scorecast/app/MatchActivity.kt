@@ -189,6 +189,7 @@ class MatchActivity : AppCompatActivity() {
                 homeAccent = club.secondary,
                 awayColor = club.awayColor,
                 periodMinutes = club.periodMinutes[sport.id] ?: sport.periodMinutes,
+                partnersVisible = club.partnersInMatch && club.partners.isNotEmpty(),
             )
         )
         startActivity(

@@ -42,6 +42,49 @@ class SportActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         showResume()
+        showOngoing()
+    }
+
+    /** Match sauvegardé (l'appli s'est fermée pendant le live) : proposer de le reprendre. */
+    private fun showOngoing() {
+        val card = findViewById<MaterialCardView>(R.id.ongoing)
+        val saved = MatchStore.load(this)
+        if (saved == null) {
+            card.visibility = View.GONE
+            return
+        }
+        val s = saved.state
+        card.visibility = View.VISIBLE
+        val score = if (s.sport == Sport.VOLLEY) "${s.homeSets} - ${s.awaySets} (sets)" else "${s.homeScore} - ${s.awayScore}"
+        findViewById<TextView>(R.id.ongoingScore).text = "${s.homeName}  $score  ${s.awayName}"
+        val minutes = ((System.currentTimeMillis() - saved.savedAt) / 60_000).toInt()
+        val clock = if (s.sport.hasClock) " · chrono ${s.clockText(ScoreManager.now())}" + (if (s.clockRunning) " (en marche)" else "") else ""
+        findViewById<TextView>(R.id.ongoingInfo).text = Ui.withSportIcon(this, s.sport,
+            s.periodLabel + clock + " · sauvegardé il y a " + (if (minutes < 1) "moins d'une minute" else "$minutes min"), 13f)
+        findViewById<View>(R.id.ongoingResume).setOnClickListener {
+            // Relire la sauvegarde : le chrono est recalculé au moment de la reprise
+            val fresh = MatchStore.load(this) ?: return@setOnClickListener
+            AppPrefs(this).sport = fresh.state.sport
+            ScoreManager.init(fresh.state)
+            startActivity(
+                Intent(this, StreamActivity::class.java)
+                    .putExtra(StreamActivity.EXTRA_URL, fresh.session.url)
+                    .putExtra(StreamActivity.EXTRA_BACKUP_URL, fresh.session.backupUrl)
+                    .putExtra(StreamActivity.EXTRA_1080P, fresh.session.q1080)
+                    .putExtra(EXTRA_CLUB_ID, fresh.session.clubId)
+            )
+        }
+        findViewById<View>(R.id.ongoingDrop).setOnClickListener {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Terminer ce match ?")
+                .setMessage("Le score sauvegardé sera effacé.")
+                .setPositiveButton("Terminer") { _, _ ->
+                    MatchStore.clear(this)
+                    card.visibility = View.GONE
+                }
+                .setNegativeButton("Annuler", null)
+                .show()
+        }
     }
 
     private fun card(sport: Sport, first: Boolean): View {

@@ -195,6 +195,13 @@
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/share"
+                style="@style/SecondaryButton"
+                android:layout_marginTop="16dp"
+                android:text="📲  Envoyer ce club vers un autre téléphone"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/delete"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"

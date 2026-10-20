@@ -28,6 +28,8 @@ class OverlayRenderer(
     private val width: Int,
     private val height: Int,
     private val logo: Bitmap?,
+    /** Logos des partenaires du club (mi-temps, et rotation pendant le match si activée). */
+    private val partners: List<Bitmap> = emptyList(),
 ) {
 
     private val bebas = Typeface.createFromAsset(context.assets, "fonts/BebasNeue-Regular.ttf")
@@ -51,6 +53,7 @@ class OverlayRenderer(
         append('|').append(goalBanner(s, now) != null)
         append('|').append(timeoutBanner(s, now) != null)
         append('|').append(suspensionBanner(s, now) != null)
+        if (s.partnersVisible && partners.isNotEmpty()) append("|p").append(partnerIndex(now))
         if (s.sport == Sport.HAND) {
             append('|').append(s.activeSuspensions(Team.HOME, now).map { (it + 999) / 1000 })
             append('|').append(s.activeSuspensions(Team.AWAY, now).map { (it + 999) / 1000 })
@@ -190,7 +193,41 @@ class OverlayRenderer(
             1 -> eventBanner(c, s, start, y + 12, w, "TEMPS MORT", s.name(timeout!!).uppercase(), "", timeout)
             2 -> eventBanner(c, s, start, y + 12, w, "EXCLUSION 2'", s.name(susp!!.team).uppercase(), "", susp.team)
         }
+        // Partenaires : un logo à la fois, en bas à droite, qui change toutes les 8 secondes
+        if (s.partnersVisible && partners.isNotEmpty()) {
+            val w2 = 260f
+            val h2 = 150f
+            partnerTile(c, 1920f - 48 - w2, 1080f - 48 - h2, w2, h2, partners[partnerIndex(now)])
+        }
         return bitmap
+    }
+
+    private fun partnerIndex(now: Long): Int = ((now / PARTNER_ROTATION_MS) % partners.size).toInt()
+
+    /** Logo d'un partenaire sur une carte blanche arrondie. */
+    private fun partnerTile(c: Canvas, x: Float, y: Float, w: Float, h: Float, bmp: Bitmap) {
+        roundRect(c, x, y, w, h, 14f, Color.WHITE)
+        val pad = 14f
+        val scale = minOf((w - 2 * pad) / bmp.width, (h - 2 * pad) / bmp.height)
+        val dw = bmp.width * scale
+        val dh = bmp.height * scale
+        c.drawBitmap(bmp, null, RectF(x + (w - dw) / 2, y + (h - dh) / 2, x + (w + dw) / 2, y + (h + dh) / 2), bitmapPaint)
+    }
+
+    /** Bandeau « Merci à nos partenaires » : jusqu'à 8 logos centrés sur une ligne. */
+    private fun partnerStrip(c: Canvas, labelBaseline: Float, color: Int) {
+        if (partners.isEmpty()) return
+        val shown = partners.take(MAX_PARTNERS)
+        drawText(c, "MERCI À NOS PARTENAIRES", 960f, labelBaseline, 26f, josefin, color)
+        val tileW = 190f
+        val tileH = 110f
+        val gap = 20f
+        val total = shown.size * tileW + (shown.size - 1) * gap
+        var x = 960 - total / 2
+        for (bmp in shown) {
+            partnerTile(c, x, labelBaseline + 20, tileW, tileH, bmp)
+            x += tileW + gap
+        }
     }
 
     /** Fautes / temps morts / exclusions d'une équipe, dans la ligne sous son nom. */
@@ -291,10 +328,13 @@ class OverlayRenderer(
             return bitmap
         }
 
+        // Mi-temps avec partenaires : tout est un peu plus compact pour laisser la place au bandeau
+        val withPartners = scene == Scene.HALFTIME && partners.isNotEmpty()
+
         // Logo
-        var y = 110f
+        var y = if (withPartners) 60f else 110f
         if (logo != null) {
-            val box = 300f
+            val box = if (withPartners) 200f else 300f
             drawLogo(c, 960 - box / 2, y, box, box)
             y += box + 30
         } else {
@@ -340,16 +380,18 @@ class OverlayRenderer(
         if (scene != Scene.INTRO && s.sport == Sport.FOOT) {
             for ((xCenter, lines) in listOf(lx + plateW / 2 to s.scorers(Team.HOME), rx + plateW / 2 to s.scorers(Team.AWAY))) {
                 var ly = y
-                for (line in lines.take(5)) {
+                for (line in lines.take(if (withPartners) 3 else 5)) {
                     drawText(c, line, xCenter, ly, 32f, josefin, Color.WHITE, maxWidth = plateW)
                     ly += 44
                 }
             }
         }
 
+        if (withPartners) partnerStrip(c, 830f, highlight)
+
         // Compétition, en bas
         if (s.competition.isNotBlank()) {
-            drawText(c, s.competition.uppercase(), 960f, 1010f, 36f, josefin, Color.WHITE, maxWidth = 1600f)
+            drawText(c, s.competition.uppercase(), 960f, 1030f, 32f, josefin, Color.WHITE, maxWidth = 1600f)
         }
         return bitmap
     }
@@ -388,6 +430,11 @@ class OverlayRenderer(
         if (details.isNotEmpty()) {
             rect(c, x, y + h, total, 44f, SUB_BG)
             drawText(c, details, 960f, y + h + 31, 26f, josefin, Color.WHITE, maxWidth = total - 40)
+        }
+        // Partenaires en haut de la vidéo de mi-temps
+        if (scene == Scene.HALFTIME && partners.isNotEmpty()) {
+            rect(c, 0f, 0f, 1920f, 200f, SUB_BG)
+            partnerStrip(c, 50f, Color.WHITE)
         }
         return bitmap
     }
@@ -526,6 +573,8 @@ class OverlayRenderer(
         private const val SUB = 34f
 
         const val GOAL_BANNER_MS = 10_000L
+        const val PARTNER_ROTATION_MS = 8_000L
+        const val MAX_PARTNERS = 8
         const val TIMEOUT_BANNER_MS = 8_000L
         const val SUSP_BANNER_MS = 6_000L
     }

@@ -24,6 +24,7 @@ class ClubsActivity : AppCompatActivity() {
         prefs = AppPrefs(this)
         val sport = prefs.sport
         Ui.header(this, 2, "Votre club", Ui.withSportIcon(this, sport, "${sport.label} · choisissez le club qui diffuse le match."))
+        findViewById<View>(R.id.receive).setOnClickListener { scanClub() }
         findViewById<View>(R.id.add).setOnClickListener {
             startActivity(Intent(this, ClubEditActivity::class.java))
         }
@@ -66,6 +67,50 @@ class ClubsActivity : AppCompatActivity() {
                 startActivity(Intent(this, ClubEditActivity::class.java).putExtra(EXTRA_CLUB_ID, club.id))
             }
             list.addView(item)
+        }
+    }
+
+    /** Scan du QR code affiché par l'autre téléphone (Modifier le club → Envoyer), puis copie. */
+    private fun scanClub() {
+        val options = com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_QR_CODE)
+            .build()
+        com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(this, options).startScan()
+            .addOnSuccessListener { barcode ->
+                val url = ClubShare.parse(barcode.rawValue.orEmpty())
+                if (url == null) {
+                    android.widget.Toast.makeText(this, "Ce QR code n'est pas un club ScoreCast", android.widget.Toast.LENGTH_LONG).show()
+                } else {
+                    receiveClub(url)
+                }
+            }
+            .addOnFailureListener {
+                android.widget.Toast.makeText(this, "Scanner indisponible : ${it.message}", android.widget.Toast.LENGTH_LONG).show()
+            }
+    }
+
+    private fun receiveClub(url: String) {
+        @Suppress("DEPRECATION")
+        val progress = android.app.ProgressDialog(this).apply {
+            setMessage("Copie du club en cours…")
+            setCancelable(false)
+            show()
+        }
+        kotlin.concurrent.thread {
+            val result = runCatching { ClubShare.receive(this, repo, url) }
+            runOnUiThread {
+                progress.dismiss()
+                result.onSuccess { club ->
+                    android.widget.Toast.makeText(this, "${club.name} copié sur ce téléphone", android.widget.Toast.LENGTH_LONG).show()
+                    render()
+                }.onFailure {
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Copie impossible")
+                        .setMessage("${it.message}\n\nVérifiez que les deux téléphones sont sur le même Wi-Fi et que la fenêtre d'envoi est toujours ouverte sur l'autre téléphone.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
         }
     }
 

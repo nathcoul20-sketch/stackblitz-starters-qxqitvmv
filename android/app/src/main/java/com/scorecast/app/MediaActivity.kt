@@ -26,6 +26,10 @@ class MediaActivity : AppCompatActivity() {
     private lateinit var club: Club
     private var pendingSlot: MediaSlot? = null
 
+    private val partnerPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) addPartner(uri)
+    }
+
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val slot = pendingSlot ?: return@registerForActivityResult
         pendingSlot = null
@@ -42,7 +46,81 @@ class MediaActivity : AppCompatActivity() {
         val logo = repo.logo(club)
         val sample = Previews.sampleState(AppPrefs(this).sport, club.name, club.primary, club.secondary)
         findViewById<ImageView>(R.id.generated).setImageBitmap(Previews.screen(this, sample, Scene.INTRO, logo))
+        findViewById<View>(R.id.addPartner).setOnClickListener {
+            if (club.partners.size >= OverlayRenderer.MAX_PARTNERS) {
+                Toast.makeText(this, "8 logos maximum : retirez-en un d'abord", Toast.LENGTH_LONG).show()
+            } else {
+                partnerPicker.launch("image/*")
+            }
+        }
+        findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.partnersInMatch).apply {
+            isChecked = club.partnersInMatch
+            setOnCheckedChangeListener { _, checked ->
+                club.partnersInMatch = checked
+                repo.save(club)
+            }
+        }
         render()
+        renderPartners()
+    }
+
+    // ---- Partenaires ----
+
+    private fun renderPartners() {
+        val grid = findViewById<android.widget.GridLayout>(R.id.partners)
+        grid.removeAllViews()
+        val cell = (resources.displayMetrics.widthPixels - Ui.dp(this, 40f) - Ui.dp(this, 24f)) / 3
+        for (name in club.partners.toList()) {
+            val bmp = runCatching { android.graphics.BitmapFactory.decodeFile(File(repo.dir(club), name).path) }.getOrNull()
+            val tile = ImageView(this).apply {
+                layoutParams = android.widget.GridLayout.LayoutParams().apply {
+                    width = cell
+                    height = (cell * 0.6f).toInt()
+                    setMargins(0, 0, Ui.dp(this@MediaActivity, 8f), Ui.dp(this@MediaActivity, 8f))
+                }
+                background = Ui.rounded(android.graphics.Color.WHITE, Ui.dp(this@MediaActivity, 10f).toFloat())
+                val pad = Ui.dp(this@MediaActivity, 8f)
+                setPadding(pad, pad, pad, pad)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setImageBitmap(bmp)
+                contentDescription = "Logo partenaire"
+                setOnClickListener { removePartner(name) }
+            }
+            grid.addView(tile)
+        }
+        findViewById<View>(R.id.partnersInMatch).visibility = if (club.partners.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun addPartner(uri: Uri) {
+        thread {
+            val bmp = Ui.loadScaledImage(this, uri, 600)
+            val name = "partenaire_${System.currentTimeMillis()}.png"
+            val ok = bmp != null && runCatching {
+                File(repo.dir(club), name).outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            }.isSuccess
+            runOnUiThread {
+                if (!ok) {
+                    Toast.makeText(this, "Image illisible", Toast.LENGTH_LONG).show()
+                    return@runOnUiThread
+                }
+                club.partners.add(name)
+                repo.save(club)
+                renderPartners()
+            }
+        }
+    }
+
+    private fun removePartner(name: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Retirer ce partenaire ?")
+            .setPositiveButton("Retirer") { _, _ ->
+                club.partners.remove(name)
+                File(repo.dir(club), name).delete()
+                repo.save(club)
+                renderPartners()
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
     }
 
     private fun render() {

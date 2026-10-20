@@ -52,6 +52,10 @@ class Club(
     val periodMinutes: MutableMap<String, Int> = mutableMapOf(),
     /** Médias importés : emplacement → nom du fichier dans le dossier du club. */
     val media: MutableMap<MediaSlot, String> = mutableMapOf(),
+    /** Logos des partenaires (fichiers PNG du dossier du club), dans l'ordre d'affichage. */
+    val partners: MutableList<String> = mutableListOf(),
+    /** Rotation discrète des partenaires pendant le match (sinon : seulement à la mi-temps). */
+    var partnersInMatch: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id); put("name", name); put("primary", primary); put("secondary", secondary)
@@ -65,6 +69,7 @@ class Club(
         put("competition", competition); put("awayName", awayName); put("awayColor", awayColor)
         put("periodMinutes", JSONObject(periodMinutes as Map<*, *>))
         put("media", JSONObject().also { o -> media.forEach { (k, v) -> o.put(k.id, v) } })
+        put("partners", JSONArray(partners)); put("partnersInMatch", partnersInMatch)
     }
 
     companion object {
@@ -98,6 +103,9 @@ class Club(
                 m.keys().asSequence().mapNotNull { k -> MediaSlot.fromId(k)?.let { it to m.getString(k) } }
                     .toMap().toMutableMap()
             } ?: mutableMapOf(),
+            partners = o.optJSONArray("partners")?.let { a -> (0 until a.length()).map { a.getString(it) }.toMutableList() }
+                ?: mutableListOf(),
+            partnersInMatch = o.optBoolean("partnersInMatch"),
         )
     }
 }
@@ -137,6 +145,10 @@ class ClubRepository(context: Context) {
 
     fun logo(club: Club): Bitmap? =
         if (club.hasLogo) runCatching { BitmapFactory.decodeFile(logoFile(club).path) }.getOrNull() else null
+
+    fun partnerLogos(club: Club): List<Bitmap> = club.partners.mapNotNull { name ->
+        runCatching { BitmapFactory.decodeFile(File(dir(club), name).path) }.getOrNull()
+    }
 
     fun mediaFile(club: Club, slot: MediaSlot): File? =
         club.media[slot]?.let { File(dir(club), it) }?.takeIf { it.exists() }

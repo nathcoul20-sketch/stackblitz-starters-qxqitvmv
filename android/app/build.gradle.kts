@@ -64,4 +64,7 @@ dependencies {
 
     // Génération du QR code pour connecter la télécommande
     implementation("com.google.zxing:core:3.5.3")
+
+    // Lecture de QR code (copie d'un club d'un téléphone à l'autre), sans permission caméra
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 }

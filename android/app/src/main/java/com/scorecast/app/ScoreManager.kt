@@ -30,6 +30,10 @@ object ScoreManager {
     var version: Long = 0
         private set
 
+    /** Appelé à chaque changement (sauvegarde du match en cours, voir MatchStore). */
+    @Volatile
+    var onCommit: ((ScoreState) -> Unit)? = null
+
     fun now(): Long = SystemClock.elapsedRealtime()
 
     fun addListener(listener: (ScoreState) -> Unit) {
@@ -122,6 +126,10 @@ object ScoreManager {
                 commit(s.copy(muted = !s.muted))
                 return true
             }
+            "toggle_partners" -> {
+                commit(s.copy(partnersVisible = !s.partnersVisible))
+                return true
+            }
             // Changement de scène : pas d'historique (« Annuler » ne concerne que le match)
             "scene_intro", "scene_match", "scene_halftime", "scene_outro" -> {
                 val scene = Scene.valueOf(action.removePrefix("scene_").uppercase())
@@ -139,12 +147,13 @@ object ScoreManager {
                 periodMinutes = s.periodMinutes,
                 overlayVisible = s.overlayVisible,
                 muted = s.muted,
+                partnersVisible = s.partnersVisible,
                 scene = s.scene,
             )
             "undo" -> {
                 val previous = history.removeLastOrNull() ?: return false
                 // On garde l'écran affiché, et le chrono tel quel si on reste dans la même période
-                var restored = previous.copy(scene = s.scene, muted = s.muted)
+                var restored = previous.copy(scene = s.scene, muted = s.muted, partnersVisible = s.partnersVisible)
                 if (previous.period == s.period) {
                     restored = restored.copy(
                         clockRunning = s.clockRunning,
@@ -325,6 +334,7 @@ object ScoreManager {
     private fun commit(next: ScoreState) {
         state = next
         version++
+        onCommit?.invoke(next)
         scheduleAutoStop(next)
         notifyListeners(next)
     }

@@ -34,6 +34,10 @@
   .scenes button { background: var(--panel); border: 2px solid var(--line); font-weight: 700; padding: 10px 4px; font-size: 14px; }
   .scenes button.active { background: #fff; color: #111; border-color: #fff; }
 
+  .dev { font-size: 13px; color: var(--muted); margin: -4px 0 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .dev span { background: var(--panel); border-radius: 8px; padding: 4px 8px; }
+  .dev span.warn { background: #6b4a00; color: #fff; }
+  .dev span.bad { background: var(--red); color: #fff; }
   #muteBtn { width: 100%; margin: -4px 0 12px; padding: 10px; font-weight: 700; font-size: 15px;
     background: var(--panel); border: 2px solid var(--line); }
   #muteBtn.muted { background: var(--red); border-color: var(--red); }
@@ -140,6 +144,8 @@
   <div class="conn" id="conn">Connexion…</div>
 </div>
 
+<div class="dev" id="dev"></div>
+
 <div class="label">Écran diffusé</div>
 <div class="scenes">
   <button data-a="scene_intro" data-scene="intro">Intro</button>
@@ -200,6 +206,9 @@
   <div id="periodCfg">
     <label for="cfgPeriod" id="cfgPeriodLabel">Durée d'une mi-temps (minutes)</label>
     <input id="cfgPeriod" inputmode="numeric" maxlength="2">
+  </div>
+  <div class="row hide" id="partnersRow">
+    <button data-a="toggle_partners" id="partnersBtn" style="grid-column: span 2">Partenaires pendant le match</button>
   </div>
   <div class="row">
     <button id="saveCfg">Enregistrer</button>
@@ -419,6 +428,9 @@
     document.querySelectorAll('[data-scene]').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-scene') === s.scene);
     });
+    renderDevice(s.device || {});
+    $('partnersRow').classList.toggle('hide', !(s.device && s.device.partners > 0));
+    $('partnersBtn').textContent = s.partnersVisible ? 'Partenaires pendant le match : affichés (masquer)' : 'Partenaires pendant le match : masqués (afficher)';
     $('muteBtn').classList.toggle('muted', !!s.muted);
     $('muteBtn').textContent = s.muted ? '🔇 Son coupé · toucher pour le remettre' : '🔊 Son du live · toucher pour couper';
     $('overlayBtn').textContent = s.overlayVisible ? "Masquer l'overlay" : "Afficher l'overlay";
@@ -434,6 +446,24 @@
     if (s.sport === 'foot') renderGoals(s);
     if (askScorerFor >= (s.goals || []).length) hideScorer();
     drawClock();
+  }
+
+  // Téléphone qui filme : batterie, chauffe, réseau
+  function renderDevice(d) {
+    var parts = [];
+    if (d.battery >= 0) {
+      var cls = !d.charging && d.battery <= 15 ? 'bad' : (!d.charging && d.battery <= 30 ? 'warn' : '');
+      parts.push('<span class="' + cls + '">' + (d.charging ? '🔌 ' : '🔋 ') + d.battery + ' %</span>');
+      if (d.temperature) parts.push('<span class="' + (d.temperature >= 43 ? 'bad' : '') + '">🌡 ' + Math.round(d.temperature) + ' °C</span>');
+    }
+    if (d.live) {
+      var mb = (d.bitrate / 1e6).toFixed(1).replace('.', ',');
+      parts.push('<span class="' + (d.weak ? 'bad' : '') + '">' + (d.weak ? '⚠ Réseau faible · ' : '📶 ') + mb + ' Mb/s' +
+        (d.quality ? ' · ' + d.quality : '') + '</span>');
+    } else {
+      parts.push('<span>Live arrêté</span>');
+    }
+    $('dev').innerHTML = parts.join('');
   }
 
   var swatchesFor = '';
