@@ -105,8 +105,13 @@ class ClubEditActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Retour de l'écran des médias : nombre de médias à jour
-        repo.get(club.id)?.let { saved -> club.media.clear(); club.media.putAll(saved.media) }
+        // Retour de l'écran des médias : on reprend médias et partenaires enregistrés là-bas,
+        // sinon « Enregistrer » sur cette fiche les effacerait
+        repo.get(club.id)?.let { saved ->
+            club.media.clear(); club.media.putAll(saved.media)
+            club.partners.clear(); club.partners.addAll(saved.partners)
+            club.partnersInMatch = saved.partnersInMatch
+        }
         updateMediaInfo()
     }
 
@@ -131,9 +136,11 @@ class ClubEditActivity : AppCompatActivity() {
 
     private fun updateMediaInfo() {
         val n = club.media.size
-        findViewById<TextView>(R.id.mediaInfo).text =
-            if (n == 0) "Intro, pause, fin, transition, musique : aucun importé"
+        val p = club.partners.size
+        val media = if (n == 0) "Intro, pause, fin, transition, musique : aucun importé"
             else "$n média${if (n > 1) "s" else ""} importé${if (n > 1) "s" else ""}"
+        findViewById<TextView>(R.id.mediaInfo).text =
+            if (p == 0) media else "$media · $p partenaire${if (p > 1) "s" else ""}"
     }
 
     /** Enregistre le club ; false si le nom manque. */

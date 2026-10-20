@@ -60,6 +60,11 @@ class MediaActivity : AppCompatActivity() {
                 repo.save(club)
             }
         }
+        findViewById<View>(R.id.mediaSave).setOnClickListener {
+            repo.save(club)
+            Toast.makeText(this, "Écrans, vidéos et partenaires enregistrés", Toast.LENGTH_SHORT).show()
+            finish()
+        }
         render()
         renderPartners()
     }
