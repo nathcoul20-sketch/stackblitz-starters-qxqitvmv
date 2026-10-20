@@ -143,7 +143,11 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         val logo = club?.let { repo.logo(it) }
         val partners = club?.let { repo.partnerLogos(it) } ?: emptyList()
         DeviceStatus.partnerCount = partners.size
-        scenes = SceneController(OverlayRenderer(this, videoWidth, videoHeight, logo, partners), audioMixer, media)
+        scenes = SceneController(
+            OverlayRenderer(this, videoWidth, videoHeight, logo, partners), audioMixer, media,
+            // Transition dessinée en demi-résolution (plus légère), étirée sur tout l'écran
+            TransitionRenderer(this, videoWidth / 2, videoHeight / 2, logo),
+        )
         bitrateAdapter = BitrateAdapter { bitrate -> camera.setVideoBitrateOnFly(bitrate) }
         bitrateAdapter.setMaxBitrate(videoBitrate)
 
@@ -220,7 +224,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         DeviceStatus.live = false
         DeviceStatus.bitrate = 0
         ScoreManager.removeListener(scoreListener)
-        scenes.detach()
+        scenes.release()
         audioMixer.release()
         server?.stop()
         if (camera.isStreaming) camera.stopStream()

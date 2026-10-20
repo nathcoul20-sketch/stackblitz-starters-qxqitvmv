@@ -29,6 +29,37 @@ class AudioMixer(private val musicFile: File?) : CustomAudioEffect() {
     /** Son du live entièrement coupé (bouton « Couper le son »). */
     @Volatile var muted = false
 
+    /**
+     * Pendant une transition : le son en cours (musique ou micro) baisse doucement jusqu'au silence,
+     * puis, au changement d'écran, le nouveau son remonte progressivement.
+     */
+    @Volatile private var dip = false
+    @Volatile private var fadeDownStep = FADE_STEP
+    @Volatile private var fadeUpStep = FADE_STEP
+
+    /** Début de transition : le son actuel s'éteint en [ms] millisecondes. */
+    fun fadeOutFor(ms: Long) {
+        fadeDownStep = stepFor(ms)
+        dip = true
+    }
+
+    /** Changement d'écran : le son de la nouvelle scène ([music]) remonte en [ms] millisecondes. */
+    fun fadeInFor(ms: Long, music: Boolean) {
+        fadeUpStep = stepFor(ms)
+        musicOn = music
+        dip = false
+    }
+
+    /** Changement d'écran sans transition : fondu enchaîné classique. */
+    fun crossfade(music: Boolean) {
+        fadeDownStep = FADE_STEP
+        fadeUpStep = FADE_STEP
+        dip = false
+        musicOn = music
+    }
+
+    private fun stepFor(ms: Long) = 1f / (SAMPLE_RATE * CHANNELS * (ms.coerceAtLeast(100L) / 1000f))
+
     private var musicGain = 0f
     private var micGain = 1f
     private val music = ShortRing(SAMPLE_RATE * CHANNELS * 2) // ~2 s d'avance
@@ -52,15 +83,15 @@ class AudioMixer(private val musicFile: File?) : CustomAudioEffect() {
         }
         val samples = ByteBuffer.wrap(pcmBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
         val count = samples.remaining()
-        val musicTarget = if (musicOn && musicFile != null) 1f else 0f
-        val micTarget = 1f - musicTarget
+        val musicTarget = if (!dip && musicOn && musicFile != null) 1f else 0f
+        val micTarget = if (dip) 0f else 1f - musicTarget
 
         // La musique n'avance que lorsqu'elle est audible : elle reprend là où elle s'était arrêtée
         val needMusic = musicOn || musicGain > 0f
         if (musicBlock.size < count) musicBlock = ShortArray(count)
         val got = if (needMusic) music.read(musicBlock, count) else 0
 
-        if (musicGain == 0f && micGain == 1f && musicTarget == 0f) return pcmBuffer // micro seul : rien à mixer
+        if (musicGain == 0f && micGain == 1f && musicTarget == 0f && micTarget == 1f) return pcmBuffer // micro seul : rien à mixer
         for (i in 0 until count) {
             musicGain = approach(musicGain, musicTarget)
             micGain = approach(micGain, micTarget)
@@ -72,8 +103,8 @@ class AudioMixer(private val musicFile: File?) : CustomAudioEffect() {
     }
 
     private fun approach(value: Float, target: Float): Float = when {
-        value < target -> minOf(target, value + FADE_STEP)
-        value > target -> maxOf(target, value - FADE_STEP)
+        value < target -> minOf(target, value + fadeUpStep)
+        value > target -> maxOf(target, value - fadeDownStep)
         else -> value
     }
 
