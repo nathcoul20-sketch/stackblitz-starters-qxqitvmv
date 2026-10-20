@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Corps de la batterie (teinté selon le niveau : vert / orange / rouge) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="512" android:viewportHeight="512">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M42,128H422A10,10 0,0 1,432 138V374A10,10 0,0 1,422 384H42A10,10 0,0 1,32 374V138A10,10 0,0 1,42 128Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M432,192H470A10,10 0,0 1,480 202V310A10,10 0,0 1,470 320H432Z" />
+</vector>

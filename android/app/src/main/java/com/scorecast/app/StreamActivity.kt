@@ -13,6 +13,7 @@ import android.view.SurfaceHolder
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -36,6 +37,9 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         private const val MAX_RETRIES = 10
         /** Au-delà (°C de la batterie), on prévient que le téléphone chauffe. */
         private const val HOT_TEMP = 43f
+        private val COLOR_OK = 0xFF20C07C.toInt()
+        private val COLOR_WARN = 0xFFFF9800.toInt()
+        private val COLOR_BAD = 0xFFE5484D.toInt()
         const val EXTRA_1080P = "1080p"
     }
 
@@ -48,9 +52,14 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private lateinit var scorePanel: View
     private var clockButton: Button? = null
     private lateinit var endPeriodButton: Button
-    private lateinit var muteButton: Button
+    private lateinit var muteButton: ImageButton
     private lateinit var qualityButton: Button
-    private lateinit var deviceInfo: TextView
+    private lateinit var deviceInfo: View
+    private lateinit var batteryIcon: ImageView
+    private lateinit var batteryBolt: ImageView
+    private lateinit var batteryText: TextView
+    private lateinit var tempIcon: ImageView
+    private lateinit var tempText: TextView
 
     /** Qualité d'image : « Auto » s'adapte au réseau, les autres sont des débits fixes. */
     private enum class Quality(val label: String, val factor: Float) {
@@ -88,8 +97,9 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         sceneButtons.forEach { (scene, button) -> button.alpha = if (scene == state.scene) 1f else 0.55f }
         clockButton?.text = if (state.clockRunning) "❚❚ Chrono" else "▶ Chrono"
         endPeriodButton.text = state.endPeriodLabel
-        muteButton.text = if (state.muted) "🔇 Son coupé" else "🔊 Son"
-        muteButton.backgroundTintList = android.content.res.ColorStateList.valueOf(
+        muteButton.setImageResource(if (state.muted) R.drawable.ic_volume_off else R.drawable.ic_volume_on)
+        muteButton.contentDescription = if (state.muted) "Rétablir le son du live" else "Couper le son du live"
+        muteButton.backgroundTintList = ColorStateList.valueOf(
             if (state.muted) 0xFFE5484D.toInt() else 0xCC2A2C35.toInt()
         )
     }
@@ -149,6 +159,11 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         openGlView.holder.addCallback(this)
 
         deviceInfo = findViewById(R.id.deviceInfo)
+        batteryIcon = findViewById(R.id.batteryIcon)
+        batteryBolt = findViewById(R.id.batteryBolt)
+        batteryText = findViewById(R.id.batteryText)
+        tempIcon = findViewById(R.id.tempIcon)
+        tempText = findViewById(R.id.tempText)
         qualityButton = findViewById(R.id.quality)
         qualityButton.setOnClickListener { chooseQuality() }
         updateQualityUi()
@@ -389,14 +404,25 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         DeviceStatus.temperature = temp
         if (pct < 0) return
         val hot = temp >= HOT_TEMP
-        deviceInfo.text = String.format(Locale.FRANCE, "%s %d %%  ·  %s%.0f °C",
-            if (plugged) "🔌" else "🔋", pct, if (hot) "🔥 " else "🌡 ", temp)
-        deviceInfo.backgroundTintList = when {
-            !plugged && pct <= 15 -> ColorStateList.valueOf(0xE6C62828.toInt())
-            hot -> ColorStateList.valueOf(0xE6E65100.toInt())
-            !plugged && pct <= 30 -> ColorStateList.valueOf(0xE6B26A00.toInt())
-            else -> null
-        }
+        // Petit indicateur en haut à droite : vert = OK, orange = à surveiller, rouge = alerte
+        deviceInfo.visibility = View.VISIBLE
+        batteryText.text = "$pct %"
+        batteryBolt.visibility = if (plugged) View.VISIBLE else View.GONE
+        batteryIcon.imageTintList = ColorStateList.valueOf(
+            when {
+                plugged || pct > 30 -> COLOR_OK
+                pct > 15 -> COLOR_WARN
+                else -> COLOR_BAD
+            }
+        )
+        tempText.text = String.format(Locale.FRANCE, "%.0f °C", temp)
+        tempIcon.imageTintList = ColorStateList.valueOf(
+            when {
+                hot -> COLOR_BAD
+                temp >= HOT_TEMP - 5 -> COLOR_WARN
+                else -> COLOR_OK
+            }
+        )
         if (plugged) {
             // En charge : les alertes pourront se redéclencher si on débranche plus tard
             if (pct > 15) warned15 = false

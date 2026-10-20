@@ -25,19 +25,78 @@
         android:textSize="14sp"
         android:textStyle="bold" />
 
-    <!-- Batterie et température du téléphone (pas dans le live) -->
-    <TextView
+    <!-- Batterie et température du téléphone (pas dans le live), petit, en haut à droite -->
+    <LinearLayout
         android:id="@+id/deviceInfo"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="10dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
         android:background="@drawable/chip_bg"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="5dp"
-        android:textColor="#FFFFFF"
-        android:textSize="13sp"
-        android:textStyle="bold" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="3dp"
+        android:visibility="invisible">
+
+        <FrameLayout
+            android:layout_width="18dp"
+            android:layout_height="18dp">
+
+            <ImageView
+                android:id="@+id/batteryIcon"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Batterie"
+                android:src="@drawable/ic_battery_body" />
+
+            <ImageView
+                android:id="@+id/batteryBolt"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_battery_bolt"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/batteryText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <FrameLayout
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginStart="8dp">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_thermo_tube" />
+
+            <ImageView
+                android:id="@+id/tempIcon"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Température"
+                android:src="@drawable/ic_thermo_fill" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/tempText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="1dp"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
     <!-- Choix de la scène diffusée, à gauche -->
     <LinearLayout
@@ -80,18 +139,15 @@
         android:layout_gravity="end"
         android:gravity="center_vertical"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:paddingHorizontal="12dp"
+        android:paddingTop="36dp"
+        android:paddingBottom="64dp">
 
         <Button
             android:id="@+id/live"
             style="@style/ControlButton"
             app:backgroundTint="#E5484D"
             android:text="● LIVE" />
-
-        <Button
-            android:id="@+id/mute"
-            style="@style/ControlButton"
-            android:text="🔊 Son" />
 
         <Button
             android:id="@+id/remote"
@@ -113,6 +169,20 @@
             style="@style/ControlButton"
             android:text="Caméra ⇄" />
     </LinearLayout>
+
+    <!-- Couper / rétablir le son du live : petit rond en bas à droite -->
+    <ImageButton
+        android:id="@+id/mute"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="12dp"
+        android:background="@drawable/round_bg"
+        android:backgroundTint="#CC2A2C35"
+        android:contentDescription="Couper le son du live"
+        android:padding="10dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_volume_on" />
 
     <!-- Panneau de score local (secours si pas de télécommande), rempli selon le sport -->
     <HorizontalScrollView
