@@ -3,7 +3,6 @@ package com.scorecast.app
 import android.graphics.Bitmap
 import android.media.MediaPlayer
 import android.os.Handler
-import android.os.HandlerThread
 import android.os.Looper
 import android.os.SystemClock
 import android.view.Surface
@@ -49,11 +48,21 @@ class SceneController(
     private var videoFilter: SurfaceFilterRender? = null
     private var overlayFilter: ImageObjectFilterRender? = null
     private var transitionFilter: SurfaceFilterRender? = null
-    private var generatedFilter: ImageObjectFilterRender? = null
-    /** Thread de dessin de la transition générée, et numéro de l'animation en cours (0 = aucune). */
-    private var animThread: HandlerThread? = null
-    private var animHandler: Handler? = null
-    @Volatile private var animId = 0
+    /**
+     * Transition générée : elle est dessinée par-dessus l'image de l'overlay (calque déjà éprouvé),
+     * image par image depuis le thread principal. [animStart] = 0 : aucune animation en cours.
+     */
+    private var animStart = 0L
+    private var cutDone = false
+    /** Dernière image « normale » de l'overlay (sans transition), sur laquelle on pose l'animation. */
+    private var overlayBase: Bitmap? = null
+    private var transitionLayer: Bitmap? = null
+    private val composePool = arrayOfNulls<Bitmap>(3)
+    private var composeIndex = 0
+    private val bitmapPaint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+    private val animFrame = object : Runnable {
+        override fun run() = onAnimFrame()
+    }
     private var videoPlayer: MediaPlayer? = null
     private var transitionPlayer: MediaPlayer? = null
     private var transitionReady = false
@@ -79,9 +88,8 @@ class SceneController(
         val video = SurfaceFilterRender { onVideoSurfaceReady() }.apply { alpha = 0f }
         val overlay = ImageObjectFilterRender()
         val transition = SurfaceFilterRender { onTransitionSurfaceReady() }.apply { alpha = 0f }
-        val gen = ImageObjectFilterRender().apply { alpha = 0f }
         gl.clearFilters()
-        listOf(video, overlay, transition, gen).forEach {
+        listOf(video, overlay, transition).forEach {
             gl.addFilter(it)
             it.setScale(100f, 100f)
             it.setPosition(0f, 0f)
@@ -89,11 +97,6 @@ class SceneController(
         videoFilter = video
         overlayFilter = overlay
         transitionFilter = transition
-        generatedFilter = gen
-        if (generated != null && animThread == null) {
-            animThread = HandlerThread("transition").also { it.start() }
-            animHandler = Handler(animThread!!.looper)
-        }
         showScene(state.scene)
         ticker.removeCallbacksAndMessages(null)
         ticker.post(tick)
@@ -111,18 +114,13 @@ class SceneController(
         videoFilter = null
         overlayFilter = null
         transitionFilter = null
-        animId = 0
-        animHandler?.removeCallbacksAndMessages(null)
-        generatedFilter = null
+        animStart = 0L
         shownScene = null
     }
 
     /** Arrêt définitif (fin de l'activité). */
     fun release() {
         detach()
-        animThread?.quitSafely()
-        animThread = null
-        animHandler = null
     }
 
     fun onState(s: ScoreState) {
@@ -155,45 +153,57 @@ class SceneController(
         main.postDelayed({ finishTransition() }, maxOf(transitionDurationMs.toLong(), cut) + 1_500L)
     }
 
-    /** Volets + logo aux couleurs du club, dessinés image par image sur un thread dédié. */
+    /** Volets + logo aux couleurs du club, dessinés image par image par-dessus l'overlay. */
     private fun startGeneratedTransition() {
-        val renderer = generated
-        val handler = animHandler
-        val filter = generatedFilter
-        if (renderer == null || handler == null || filter == null) {
+        if (generated == null || overlayFilter == null) {
             showScene(state.scene)
             return
         }
         transitioning = true
-        val id = ++animId
-        val colors = state
-        val name = colors.homeName
-        // 3 bitmaps utilisés à tour de rôle : le calque envoie l'image au GPU pendant qu'on dessine la suivante
-        val pool = List(3) { Bitmap.createBitmap(renderer.width, renderer.height, Bitmap.Config.ARGB_8888) }
-        var n = 0
-        val start = SystemClock.uptimeMillis()
+        cutDone = false
+        animStart = SystemClock.uptimeMillis()
         audio.fadeOutFor(TransitionRenderer.CUT_MS)
-        val cutAt = TransitionRenderer.CUT_MS
-        main.postDelayed({ if (animId == id) showScene(state.scene, TransitionRenderer.DURATION_MS - cutAt) }, cutAt)
-        handler.post(object : Runnable {
-            override fun run() {
-                if (animId != id) return
-                val elapsed = SystemClock.uptimeMillis() - start
-                if (elapsed >= TransitionRenderer.DURATION_MS) {
-                    main.post { if (animId == id) finishTransition() }
-                    return
-                }
-                val bmp = pool[n++ % pool.size]
-                renderer.draw(bmp, elapsed * TransitionRenderer.FPS / 1000f, colors.homeColor, colors.homeAccent, name)
-                filter.setImage(bmp)
-                filter.alpha = 1f
-                if (animId != id) { filter.alpha = 0f; return } // transition annulée entre-temps
-                val next = (1000f / TransitionRenderer.FPS).toLong() - (SystemClock.uptimeMillis() - start - elapsed)
-                handler.postDelayed(this, next.coerceAtLeast(1L))
-            }
-        })
-        // Sécurité si l'animation ne se termine pas
-        main.postDelayed({ if (animId == id) finishTransition() }, TransitionRenderer.DURATION_MS + 1_500L)
+        main.post(animFrame)
+    }
+
+    private fun onAnimFrame() {
+        if (animStart == 0L) return
+        val elapsed = SystemClock.uptimeMillis() - animStart
+        if (!cutDone && elapsed >= TransitionRenderer.CUT_MS) {
+            // L'écran est couvert : on change de scène, le nouveau son remonte pendant l'ouverture
+            cutDone = true
+            showScene(state.scene, TransitionRenderer.DURATION_MS - TransitionRenderer.CUT_MS)
+        }
+        if (elapsed >= TransitionRenderer.DURATION_MS) {
+            finishTransition()
+            return
+        }
+        pushOverlay()
+        main.postDelayed(animFrame, (1000f / TransitionRenderer.FPS).toLong())
+    }
+
+    /** Envoie l'overlay : l'image normale, avec l'image courante de la transition par-dessus si besoin. */
+    private fun pushOverlay() {
+        val base = overlayBase ?: return
+        val filter = overlayFilter ?: return
+        val renderer = generated
+        if (animStart == 0L || renderer == null) {
+            filter.setImage(base)
+            return
+        }
+        val layer = transitionLayer?.takeIf { it.width == renderer.width && it.height == renderer.height }
+            ?: Bitmap.createBitmap(renderer.width, renderer.height, Bitmap.Config.ARGB_8888).also { transitionLayer = it }
+        val frame = (SystemClock.uptimeMillis() - animStart) * TransitionRenderer.FPS / 1000f
+        renderer.draw(layer, frame, state.homeColor, state.homeAccent, state.homeName)
+        // 3 images utilisées à tour de rôle : le calque envoie l'une au GPU pendant qu'on dessine la suivante
+        val i = composeIndex++ % composePool.size
+        val out = composePool[i]?.takeIf { it.width == base.width && it.height == base.height }
+            ?: Bitmap.createBitmap(base.width, base.height, Bitmap.Config.ARGB_8888).also { composePool[i] = it }
+        val c = android.graphics.Canvas(out)
+        c.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+        c.drawBitmap(base, 0f, 0f, null)
+        c.drawBitmap(layer, null, android.graphics.Rect(0, 0, out.width, out.height), bitmapPaint)
+        filter.setImage(out)
     }
 
     private fun finishTransition() {
@@ -202,9 +212,10 @@ class SceneController(
         if (shownScene != state.scene) showScene(state.scene)
         transitionFilter?.alpha = 0f
         transitionPlayer?.pause()
-        animId = 0
-        generatedFilter?.alpha = 0f
+        val wasGenerated = animStart != 0L
+        animStart = 0L
         transitioning = false
+        if (wasGenerated) pushOverlay()
         // La scène a encore changé pendant la transition : on enchaîne
         if (state.scene != shownScene) startTransition()
     }
@@ -256,14 +267,13 @@ class SceneController(
         val now = ScoreManager.now()
         val scene = shownScene
         lastSignature = renderer.scoreboardSignature(state, now)
-        overlayFilter?.setImage(
-            when {
-                scene == null -> renderer.empty()
-                scene == Scene.MATCH -> renderer.renderScoreboard(state, now)
-                videoFor(scene) != null -> renderer.renderResultCard(state, scene)
-                else -> renderer.renderGeneratedScreen(state, scene)
-            }
-        )
+        overlayBase = when {
+            scene == null -> renderer.empty()
+            scene == Scene.MATCH -> renderer.renderScoreboard(state, now)
+            videoFor(scene) != null -> renderer.renderResultCard(state, scene)
+            else -> renderer.renderGeneratedScreen(state, scene)
+        }
+        pushOverlay()
     }
 
     /** La surface de la vidéo est prête (créée par le thread OpenGL) : on lance la vidéo de la scène. */
