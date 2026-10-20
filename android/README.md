@@ -71,6 +71,10 @@ Bon à savoir :
 
 ## Récupérer l'APK
 
+**Lien direct, toujours vers la dernière version :**
+https://github.com/nathcoul20-sketch/stackblitz-starters-qxqitvmv/releases/download/apk-latest/VolleyLive.apk
+(release `apk-latest`, mise à jour automatiquement à chaque compilation de la branche de l'appli).
+
 Chaque push sur ce dossier lance le workflow GitHub Actions **Android APK**
 (`.github/workflows/android.yml`). Dans l'onglet *Actions* du dépôt → dernier run →
 section *Artifacts* → `VolleyLive-apk` (zip contenant l'APK). L'installer sur le téléphone
