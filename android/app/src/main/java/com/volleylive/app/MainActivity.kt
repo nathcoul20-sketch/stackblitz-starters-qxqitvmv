@@ -3,6 +3,7 @@ package com.volleylive.app
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
@@ -19,6 +20,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.textfield.TextInputLayout
 import kotlin.concurrent.thread
@@ -68,6 +72,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        fitAboveSystemBarsAndKeyboard()
         prefs = Prefs(this)
 
         platform = findViewById(R.id.platform)
@@ -281,6 +286,31 @@ class MainActivity : AppCompatActivity() {
                 )
                 Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
             }
+        }
+    }
+
+    /**
+     * Android 15 affiche l'appli sous la barre d'état, la barre de navigation et le clavier.
+     * On laisse donc la place nécessaire : les boutons du bas restent au-dessus des boutons
+     * du téléphone, et la case en cours de saisie reste visible au-dessus du clavier.
+     * (Même comportement sur toutes les versions d'Android.)
+     */
+    private fun fitAboveSystemBarsAndKeyboard() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val root = findViewById<View>(R.id.root)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
+            // Quand le clavier s'ouvre, on refait défiler jusqu'à la case en cours de saisie
+            if (insets.isVisible(WindowInsetsCompat.Type.ime())) {
+                currentFocus?.let { focused ->
+                    view.post { focused.requestRectangleOnScreen(Rect(0, 0, focused.width, focused.height + 40)) }
+                }
+            }
+            WindowInsetsCompat.CONSUMED
         }
     }
 
