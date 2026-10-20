@@ -2,4 +2,7 @@
 <Button xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/ScoreButton"
     android:layout_width="wrap_content"
-    android:minWidth="56dp" />
+    android:minWidth="48dp"
+    android:minHeight="0dp"
+    android:insetTop="0dp"
+    android:insetBottom="0dp" />

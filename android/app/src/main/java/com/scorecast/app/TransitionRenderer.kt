@@ -85,6 +85,7 @@ class TransitionRenderer(
         if (k > 0.001f) {
             // Volet du bas : couleur principale, dégradé et traits de vitesse qui défilent
             val bottom = halfPlane(1f, (1 - k) * travel - 4f)
+            fill.color = Color.BLACK // opaque (la couleur des traits de vitesse a une transparence)
             fill.shader = LinearGradient(0f, 0f, W, 0f, primary, Colors.shade(primary, 0.62f), Shader.TileMode.CLAMP)
             c.drawPath(bottom, fill)
             fill.shader = null
@@ -95,6 +96,7 @@ class TransitionRenderer(
 
             // Volet du haut : couleur secondaire (ou presque noir si trop proche de la principale)
             val upper = halfPlane(-1f, -(1 - k) * travel + 4f)
+            fill.color = Color.BLACK
             fill.shader = LinearGradient(0f, 0f, 0f, H, Colors.shade(top, 1.08f), Colors.shade(top, 0.8f), Shader.TileMode.CLAMP)
             c.drawPath(upper, fill)
             fill.shader = null

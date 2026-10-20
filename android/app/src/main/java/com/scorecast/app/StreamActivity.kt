@@ -95,8 +95,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private val scoreListener: (ScoreState) -> Unit = { state ->
         scenes.onState(state)
         sceneButtons.forEach { (scene, button) -> button.alpha = if (scene == state.scene) 1f else 0.55f }
-        clockButton?.text = if (state.clockRunning) "❚❚ Chrono" else "▶ Chrono"
-        endPeriodButton.text = state.endPeriodLabel
+        clockButton?.text = if (state.clockRunning) "❚❚" else "▶"
+        endPeriodButton.text = shortEndLabel(state)
         muteButton.setImageResource(if (state.muted) R.drawable.ic_volume_off else R.drawable.ic_volume_on)
         muteButton.contentDescription = if (state.muted) "Rétablir le son du live" else "Couper le son du live"
         muteButton.backgroundTintList = ColorStateList.valueOf(
@@ -488,6 +488,18 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
      * Panneau de score local (secours si pas de télécommande), adapté au sport.
      * Renvoie le bouton « fin de période ».
      */
+    /** Libellé court du bouton de fin de période (barre de score compacte). */
+    private fun shortEndLabel(s: ScoreState): String = when (s.sport) {
+        Sport.VOLLEY -> "Fin set"
+        Sport.BASKET -> if (s.period < 4) "Fin QT${s.period}" else "Fin match"
+        Sport.FOOT -> when (s.period) {
+            1 -> "Fin 1re MT"
+            3 -> "Fin 1re prol."
+            else -> "Fin match"
+        }
+        Sport.HAND -> if (s.period == 1) "Fin 1re MT" else "Fin match"
+    }
+
     private fun buildScorePanel(panel: android.widget.LinearLayout, sport: Sport): Button {
         val state = ScoreManager.state
         fun add(label: String, color: Int? = null, onClick: () -> Unit): Button {
@@ -509,9 +521,10 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         } else {
             add(if (sport == Sport.FOOT || sport == Sport.HAND) "But" else "Point", home) { ScoreManager.apply("home_plus") }
         }
-        if (sport.hasClock) clockButton = add("▶ Chrono") { ScoreManager.apply("clock_toggle") }
-        add("Annuler") { ScoreManager.apply("undo") }
-        val end = add(state.endPeriodLabel) { confirmEndPeriod() }
+        if (sport.hasClock) clockButton = add("▶") { ScoreManager.apply("clock_toggle") }.apply {
+            contentDescription = "Démarrer ou arrêter le chrono"
+        }
+        val end = add(shortEndLabel(state)) { confirmEndPeriod() }
         if (sport == Sport.BASKET) {
             for (p in 1..3) add("+$p", away) { ScoreManager.apply("away_plus", p.toString()) }
         } else {

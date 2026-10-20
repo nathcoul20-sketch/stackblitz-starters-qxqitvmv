@@ -304,8 +304,13 @@ class OverlayRenderer(
 
         // Fond sombre, halo de la couleur du club derrière le logo, et angles décoratifs aux couleurs
         // du club (en haut à gauche, en bas à droite) qui ne passent jamais sous les textes
+        // Fond entièrement opaque : la caméra ne doit jamais transparaître (la peinture partagée peut
+        // garder l'opacité d'un dessin précédent, d'où le fill.color opaque avant chaque dégradé)
+        c.drawColor(Color.rgb(6, 6, 9))
+        fill.color = Color.BLACK
         fill.shader = LinearGradient(0f, 0f, 0f, 1080f, Color.rgb(24, 25, 32), Color.rgb(6, 6, 9), Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, 1920f, 1080f, fill)
+        fill.color = Color.BLACK
         fill.shader = RadialGradient(960f, 330f, 820f,
             intArrayOf(withAlpha(s.homeColor, 110), withAlpha(s.homeColor, 0)), null, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, 1920f, 1080f, fill)
