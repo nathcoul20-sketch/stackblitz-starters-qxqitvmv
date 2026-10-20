@@ -19,6 +19,7 @@ class ClubsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_clubs)
+        Ui.fitSystemBars(this)
         repo = ClubRepository(this)
         prefs = AppPrefs(this)
         val sport = prefs.sport

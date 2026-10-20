@@ -25,6 +25,7 @@ class SportActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sport)
+        Ui.fitSystemBars(this)
         val container = findViewById<LinearLayout>(R.id.sports)
         // 2 cartes par ligne
         Sport.entries.chunked(2).forEach { pair ->

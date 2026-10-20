@@ -33,6 +33,7 @@ class ConnectActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_connect)
+        Ui.fitSystemBars(this)
         repo = ClubRepository(this)
         club = repo.get(intent.getStringExtra(EXTRA_CLUB_ID)) ?: run { finish(); return }
         platform = Platform.fromId(club.platformId) ?: Platform.TWITCH

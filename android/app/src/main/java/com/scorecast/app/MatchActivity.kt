@@ -39,6 +39,7 @@ class MatchActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_match)
+        Ui.fitSystemBars(this)
         repo = ClubRepository(this)
         club = repo.get(intent.getStringExtra(EXTRA_CLUB_ID)) ?: run { finish(); return }
         sport = AppPrefs(this).sport

@@ -32,6 +32,7 @@ class PlatformActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_platform)
+        Ui.fitSystemBars(this)
         repo = ClubRepository(this)
         club = repo.get(intent.getStringExtra(EXTRA_CLUB_ID)) ?: run { finish(); return }
         Ui.header(this, 3, "Où diffuser le live ?", "Plateforme de ${club.name}. Elle sera retenue pour les prochains matchs.")

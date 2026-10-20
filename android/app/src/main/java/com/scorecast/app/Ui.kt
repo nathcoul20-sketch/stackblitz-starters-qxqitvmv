@@ -26,6 +26,25 @@ const val EXTRA_STEP = "step"
 object Ui {
     const val STEPS = 5
 
+    /**
+     * L'appli est dessinée sur tout l'écran (obligatoire à partir d'Android 15) : on ajoute autour
+     * du contenu la place des barres du téléphone (heure, boutons retour / accueil) et du clavier,
+     * pour que rien ne passe dessous. À appeler juste après setContentView.
+     */
+    fun fitSystemBars(activity: android.app.Activity) {
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+        val root = activity.findViewById<android.view.ViewGroup>(android.R.id.content).getChildAt(0)
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val types = androidx.core.view.WindowInsetsCompat.Type.systemBars() or
+                androidx.core.view.WindowInsetsCompat.Type.displayCutout() or
+                androidx.core.view.WindowInsetsCompat.Type.ime()
+            val bars = insets.getInsets(types)
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            androidx.core.view.WindowInsetsCompat.CONSUMED
+        }
+        androidx.core.view.ViewCompat.requestApplyInsets(root)
+    }
+
     fun dp(context: Context, v: Float): Int = (v * context.resources.displayMetrics.density).toInt()
 
     /** En-tête d'étape (layout step_header) : bouton retour, « ÉTAPE n SUR 5 », titre, sous-titre. */

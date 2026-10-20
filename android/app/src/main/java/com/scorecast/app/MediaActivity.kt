@@ -35,6 +35,7 @@ class MediaActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_media)
+        Ui.fitSystemBars(this)
         repo = ClubRepository(this)
         club = repo.get(intent.getStringExtra(EXTRA_CLUB_ID)) ?: run { finish(); return }
         Ui.header(this, intent.getIntExtra(EXTRA_STEP, 2), "Écrans & vidéos", "Tout est facultatif : importez seulement ce que le club souhaite.")

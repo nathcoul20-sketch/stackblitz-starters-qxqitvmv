@@ -50,6 +50,7 @@ class ClubEditActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_club_edit)
+        Ui.fitSystemBars(this)
         repo = ClubRepository(this)
         val existing = repo.get(intent.getStringExtra(EXTRA_CLUB_ID))
         isNew = existing == null
