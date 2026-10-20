@@ -75,12 +75,8 @@ class OverlayRenderer(
         val top = Y0
         val bottom = top + ROW
 
-        // Logo du club, sur fond blanc
-        if (logo != null) {
-            rect(c, x, top, LOGO_W, ROW, Color.WHITE)
-            drawLogo(c, x + 5, top + 5, LOGO_W - 10, ROW - 10)
-            x += LOGO_W
-        }
+        // (pas de logo dans le tableau de score : trop petit pour être net ; il est sur les écrans
+        // d'intro, de pause et de fin)
         val start = X0
         val homeX = x
         rect(c, homeX, top, NAME_W, ROW, s.homeColor)

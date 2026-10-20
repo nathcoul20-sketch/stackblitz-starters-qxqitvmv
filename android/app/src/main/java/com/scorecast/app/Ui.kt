@@ -110,19 +110,35 @@ object Ui {
 
     /**
      * Charge une image choisie par l'utilisateur, réduite à [maxSize] px de côté (le logo n'a pas
-     * besoin d'être plus grand : 300 px max à l'écran en 1080p).
+     * besoin d'être plus grand : 340 px max à l'écran en 1080p).
+     *
+     * Le fichier est d'abord lu en entier : décoder directement le flux renvoyé par la galerie
+     * (Google Photos, Drive…) peut donner une image tronquée en bas si le flux s'interrompt.
+     * L'orientation des photos (EXIF) est appliquée.
      */
-    fun loadScaledImage(context: Context, uri: Uri, maxSize: Int = 600): Bitmap? = runCatching {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        var sample = 1
-        while (bounds.outWidth / (sample * 2) >= maxSize && bounds.outHeight / (sample * 2) >= maxSize) sample *= 2
-        val decoded = context.contentResolver.openInputStream(uri)?.use {
-            BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
-        } ?: return null
-        val scale = minOf(1f, maxSize.toFloat() / maxOf(decoded.width, decoded.height))
-        if (scale >= 1f) decoded
-        else Bitmap.createScaledBitmap(decoded, (decoded.width * scale).toInt(), (decoded.height * scale).toInt(), true)
+    fun loadScaledImage(context: Context, uri: Uri, maxSize: Int = 800): Bitmap? = runCatching {
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            val source = android.graphics.ImageDecoder.createSource(java.nio.ByteBuffer.wrap(bytes))
+            android.graphics.ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                // Bitmap « logiciel » : nécessaire pour l'enregistrer et le dessiner dans l'incrustation
+                decoder.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+                val w = info.size.width
+                val h = info.size.height
+                val scale = minOf(1f, maxSize.toFloat() / maxOf(w, h))
+                if (scale < 1f) decoder.setTargetSize(maxOf(1, (w * scale).toInt()), maxOf(1, (h * scale).toInt()))
+            }
+        } else {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            var sample = 1
+            while (bounds.outWidth / (sample * 2) >= maxSize && bounds.outHeight / (sample * 2) >= maxSize) sample *= 2
+            val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size,
+                BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+            val scale = minOf(1f, maxSize.toFloat() / maxOf(decoded.width, decoded.height))
+            if (scale >= 1f) decoded
+            else Bitmap.createScaledBitmap(decoded, (decoded.width * scale).toInt(), (decoded.height * scale).toInt(), true)
+        }
     }.getOrNull()
 
     /** Copie un fichier choisi par l'utilisateur dans [dest]. Renvoie la taille copiée (octets). */
