@@ -66,7 +66,8 @@
 
   .row3 { display: flex; align-items: center; justify-content: space-between; background: var(--panel);
     border-radius: 14px; padding: 6px; gap: 6px; }
-  .row3 span { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .row3 span { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .row3 em { font-style: normal; }
   .row3 b { font-size: 22px; color: var(--text); font-variant-numeric: tabular-nums; }
   .row3 button { width: 44px; padding: 8px 0; flex: none; }
   .card { display: inline-block; width: 12px; height: 17px; background: var(--red); border-radius: 2px; }
@@ -75,11 +76,13 @@
   .serve.on { background: #fff; color: #111; }
   .dots { display: inline-flex; gap: 5px; }
   .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: inline-block; }
-  .dots i.on { background: #fff; }
+  .dots i.on { background: currentColor; }
   .susp { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; }
   .susp b { background: #b4232c; border-radius: 8px; padding: 4px 8px; font-size: 15px; font-variant-numeric: tabular-nums; }
   .suspBtn { background: #5a1b1f; font-weight: 700; }
-  .toBtn { font-weight: 700; flex: 1; }
+  .toBtn { font-weight: 700; flex: 1; min-width: 0; width: auto !important; font-size: 14px; white-space: nowrap;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    padding: 8px 6px !important; }
   .pens { display: none; }
   body.penalties .pens { display: flex; }
   .pens { background: #2b2a10; }
@@ -223,8 +226,8 @@
     <button data-x="plus" data-v="3">+3</button>
   </div>
   <button class="minus" data-x="minus">−1 point</button>
-  <div class="row3"><button data-x="foul_minus">−</button><span>Fautes <b data-f="fouls">0</b><i class="tag hide" data-f="bonus">BONUS</i></span><button data-x="foul_plus">+</button></div>
-  <div class="row3"><button class="toBtn" data-x="timeout" data-confirm="timeout">Temps mort</button><span class="dots" data-f="dots"></span><button data-x="timeout_minus">−</button></div>
+  <div class="row3"><button data-x="foul_minus">−</button><span><em data-f="foulsLabel">Fautes</em> <b data-f="fouls">0</b><i class="tag hide" data-f="bonus">BONUS</i></span><button data-x="foul_plus">+</button></div>
+  <div class="row3"><button class="toBtn" data-x="timeout" data-confirm="timeout">Temps mort <span class="dots" data-f="dots"></span></button><button data-x="timeout_minus">−</button></div>
 </template>
 
 <script>
@@ -297,7 +300,7 @@
       }
       if (sport === 'hand') {
         box.insertAdjacentHTML('beforeend',
-          '<div class="row3"><button class="toBtn" data-x="timeout" data-confirm="timeout">Temps mort</button><span class="dots" data-f="dots"></span><button data-x="timeout_minus">−</button></div>' +
+          '<div class="row3"><button class="toBtn" data-x="timeout" data-confirm="timeout">Temps mort <span class="dots" data-f="dots"></span></button><button data-x="timeout_minus">−</button></div>' +
           '<div class="row3"><button class="suspBtn toBtn" data-x="susp" data-confirm="susp">Exclusion 2\'</button><button data-x="susp_minus">−</button></div>' +
           '<div class="susp" data-f="susp"></div>');
       }
@@ -394,6 +397,7 @@
       if ((f = q(box, '[data-f=sets]'))) f.textContent = s[team + 'Sets'];
       if ((f = q(box, '[data-f=fouls]'))) f.textContent = s[team + 'Fouls'];
       if ((f = q(box, '[data-f=bonus]'))) f.classList.toggle('hide', s[team + 'Fouls'] < 5);
+      if ((f = q(box, '[data-f=foulsLabel]'))) f.classList.toggle('hide', s[team + 'Fouls'] >= 5);
       if ((f = q(box, '[data-f=dots]'))) f.innerHTML = dots(s.timeoutsAllowed - s[team + 'Timeouts'], s.timeoutsAllowed);
       if ((f = q(box, '[data-x=timeout]'))) f.disabled = s[team + 'Timeouts'] >= s.timeoutsAllowed;
       if ((f = q(box, '[data-serve]'))) f.classList.toggle('on', s.serving === team);
