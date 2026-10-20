@@ -39,6 +39,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private lateinit var scorePanel: View
     private var clockButton: Button? = null
     private lateinit var endPeriodButton: Button
+    private lateinit var muteButton: Button
 
     private val sceneButtons = mutableMapOf<Scene, Button>()
     private var server: RemoteServer? = null
@@ -58,6 +59,10 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         sceneButtons.forEach { (scene, button) -> button.alpha = if (scene == state.scene) 1f else 0.55f }
         clockButton?.text = if (state.clockRunning) "❚❚ Chrono" else "▶ Chrono"
         endPeriodButton.text = state.endPeriodLabel
+        muteButton.text = if (state.muted) "🔇 Son coupé" else "🔊 Son"
+        muteButton.backgroundTintList = android.content.res.ColorStateList.valueOf(
+            if (state.muted) 0xFFE5484D.toInt() else 0xCC2A2C35.toInt()
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,6 +100,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         camera.setCustomAudioEffect(audioMixer)
         openGlView.holder.addCallback(this)
 
+        muteButton = findViewById(R.id.mute)
+        muteButton.setOnClickListener { ScoreManager.apply("toggle_mute") }
         liveButton.isEnabled = url.isNotEmpty()
         liveButton.setOnClickListener { toggleLive() }
         findViewById<Button>(R.id.remote).setOnClickListener { showRemoteDialog() }

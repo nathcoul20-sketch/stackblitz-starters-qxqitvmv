@@ -82,6 +82,8 @@ data class ScoreState(
     val suspensions: List<Suspension> = emptyList(),
 
     val overlayVisible: Boolean = true,
+    /** Son du live coupé (micro et musique), en cas de besoin. */
+    val muted: Boolean = false,
     val scene: Scene = Scene.INTRO,
 ) {
     // ---------------------------------------------------------------- Chrono
@@ -312,6 +314,7 @@ data class ScoreState(
         put("homeSusp", JSONArray(activeSuspensions(Team.HOME, now)))
         put("awaySusp", JSONArray(activeSuspensions(Team.AWAY, now)))
         put("overlayVisible", overlayVisible)
+        put("muted", muted)
         put("scene", scene.name.lowercase())
     }
 

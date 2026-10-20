@@ -2,8 +2,8 @@
     <style name="Theme.ScoreCast" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/sc_brand</item>
         <item name="colorOnPrimary">@color/sc_on_brand</item>
-        <item name="colorPrimaryContainer">#3A1A0B</item>
-        <item name="colorOnPrimaryContainer">#FFD9C8</item>
+        <item name="colorPrimaryContainer">#0B3A26</item>
+        <item name="colorOnPrimaryContainer">#B8F2D6</item>
         <item name="colorSecondary">@color/sc_brand</item>
         <item name="colorSurface">@color/sc_bg</item>
         <item name="colorOnSurface">@color/sc_text</item>

@@ -117,6 +117,11 @@ object ScoreManager {
             "serve_away" -> s.copy(serving = Team.AWAY)
 
             "toggle_overlay" -> s.copy(overlayVisible = !s.overlayVisible)
+            // Coupure du son : pas d'historique (« Annuler » ne doit pas remettre le son)
+            "toggle_mute" -> {
+                commit(s.copy(muted = !s.muted))
+                return true
+            }
             // Changement de scène : pas d'historique (« Annuler » ne concerne que le match)
             "scene_intro", "scene_match", "scene_halftime", "scene_outro" -> {
                 val scene = Scene.valueOf(action.removePrefix("scene_").uppercase())
@@ -133,12 +138,13 @@ object ScoreManager {
                 awayColor = s.awayColor,
                 periodMinutes = s.periodMinutes,
                 overlayVisible = s.overlayVisible,
+                muted = s.muted,
                 scene = s.scene,
             )
             "undo" -> {
                 val previous = history.removeLastOrNull() ?: return false
                 // On garde l'écran affiché, et le chrono tel quel si on reste dans la même période
-                var restored = previous.copy(scene = s.scene)
+                var restored = previous.copy(scene = s.scene, muted = s.muted)
                 if (previous.period == s.period) {
                     restored = restored.copy(
                         clockRunning = s.clockRunning,

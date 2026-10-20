@@ -44,7 +44,7 @@ class MatchActivity : AppCompatActivity() {
         sport = AppPrefs(this).sport
         platform = Platform.fromId(club.platformId) ?: Platform.NONE
 
-        Ui.header(this, 5, "Le match", "${sport.emoji} ${sport.label} · ${club.name} reçoit.")
+        Ui.header(this, 5, "Le match", Ui.withSportIcon(this, sport, "${sport.label} · ${club.name} reçoit."))
 
         awayName = findViewById(R.id.awayName)
         awayColor = findViewById(R.id.awayColor)

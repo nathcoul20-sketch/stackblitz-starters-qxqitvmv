@@ -64,10 +64,19 @@ class SportActivity : AppCompatActivity() {
             val pad = Ui.dp(this@SportActivity, 16f)
             setPadding(pad, pad, pad, pad)
         }
-        inner.addView(TextView(this).apply {
-            text = sport.emoji
-            textSize = 52f
-        })
+        if (sport.emoji.isNotEmpty()) {
+            inner.addView(TextView(this).apply {
+                text = sport.emoji
+                textSize = 52f
+            })
+        } else {
+            // Hand : ballon dessiné (pas d'émoji ballon de hand)
+            val size = Ui.dp(this, 60f)
+            inner.addView(android.widget.ImageView(this).apply {
+                setImageResource(R.drawable.ic_handball)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LinearLayout.LayoutParams(size, size).apply { topMargin = Ui.dp(this@SportActivity, 6f) })
+        }
         inner.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
         inner.addView(TextView(this).apply {
             text = sport.label
@@ -103,7 +112,7 @@ class SportActivity : AppCompatActivity() {
         val sport = Sport.fromId(club.lastSport)
         val platform = Platform.fromId(club.platformId)!!
         card.visibility = View.VISIBLE
-        findViewById<TextView>(R.id.resumeText).text = "${sport.emoji}  ${club.name} · ${platform.label}"
+        findViewById<TextView>(R.id.resumeText).text = Ui.withSportIcon(this, sport, "${club.name} · ${platform.label}", 16f)
         val size = Ui.dp(this, 48f)
         findViewById<ImageView>(R.id.resumeBadge).setImageBitmap(Ui.clubBadge(this, club, repo.logo(club), size))
         card.setOnClickListener {

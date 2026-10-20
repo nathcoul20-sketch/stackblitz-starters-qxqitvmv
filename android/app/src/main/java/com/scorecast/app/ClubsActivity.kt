@@ -22,7 +22,7 @@ class ClubsActivity : AppCompatActivity() {
         repo = ClubRepository(this)
         prefs = AppPrefs(this)
         val sport = prefs.sport
-        Ui.header(this, 2, "Votre club", "${sport.emoji} ${sport.label} · choisissez le club qui diffuse le match.")
+        Ui.header(this, 2, "Votre club", Ui.withSportIcon(this, sport, "${sport.label} · choisissez le club qui diffuse le match."))
         findViewById<View>(R.id.add).setOnClickListener {
             startActivity(Intent(this, ClubEditActivity::class.java))
         }

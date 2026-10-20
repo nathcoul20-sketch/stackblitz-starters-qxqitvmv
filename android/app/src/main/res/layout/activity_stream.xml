@@ -75,6 +75,11 @@
             android:text="● LIVE" />
 
         <Button
+            android:id="@+id/mute"
+            style="@style/ControlButton"
+            android:text="🔊 Son" />
+
+        <Button
             android:id="@+id/remote"
             style="@style/ControlButton"
             android:text="Télécommande" />

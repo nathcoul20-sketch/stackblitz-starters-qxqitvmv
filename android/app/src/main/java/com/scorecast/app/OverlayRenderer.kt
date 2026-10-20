@@ -282,6 +282,19 @@ class OverlayRenderer(
         polygon(c, s.homeColor, 1920f, 1080f, 1590f, 1080f, 1920f, 460f)
         polygon(c, accent, 1560f, 1080f, 1528f, 1080f, 1920f, 343f, 1920f, 403f)
 
+        // Intro : seulement le logo du club et « Le match va bientôt commencer », centrés
+        if (scene == Scene.INTRO) {
+            val box = 340f
+            val blockH = (if (logo != null) box + 60 else 0f) + 120
+            var iy = (1080 - blockH) / 2
+            if (logo != null) {
+                drawLogo(c, 960 - box / 2, iy, box, box)
+                iy += box + 60
+            }
+            drawText(c, "LE MATCH VA BIENTÔT COMMENCER", 960f, iy + 100, 128f, bebas, highlight, maxWidth = 1560f)
+            return bitmap
+        }
+
         // Logo
         var y = 110f
         if (logo != null) {

@@ -26,6 +26,9 @@ class AudioMixer(private val musicFile: File?) : CustomAudioEffect() {
     /** true : musique (si le club en a une), micro coupé. false : micro seul. */
     @Volatile var musicOn = false
 
+    /** Son du live entièrement coupé (bouton « Couper le son »). */
+    @Volatile var muted = false
+
     private var musicGain = 0f
     private var micGain = 1f
     private val music = ShortRing(SAMPLE_RATE * CHANNELS * 2) // ~2 s d'avance
@@ -43,6 +46,10 @@ class AudioMixer(private val musicFile: File?) : CustomAudioEffect() {
     }
 
     override fun process(pcmBuffer: ByteArray): ByteArray {
+        if (muted) {
+            pcmBuffer.fill(0)
+            return pcmBuffer
+        }
         val samples = ByteBuffer.wrap(pcmBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
         val count = samples.remaining()
         val musicTarget = if (musicOn && musicFile != null) 1f else 0f

@@ -6,7 +6,7 @@
     <color name="sc_line">#2C303C</color>
     <color name="sc_text">#F4F5F8</color>
     <color name="sc_muted">#9A9EAD</color>
-    <color name="sc_brand">#FF6B2C</color>
-    <color name="sc_on_brand">#1A0A00</color>
+    <color name="sc_brand">#20C07C</color>
+    <color name="sc_on_brand">#00170D</color>
     <color name="sc_live">#E5484D</color>
 </resources>

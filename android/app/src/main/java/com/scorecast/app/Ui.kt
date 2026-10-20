@@ -29,7 +29,7 @@ object Ui {
     fun dp(context: Context, v: Float): Int = (v * context.resources.displayMetrics.density).toInt()
 
     /** En-tête d'étape (layout step_header) : bouton retour, « ÉTAPE n SUR 5 », titre, sous-titre. */
-    fun header(activity: androidx.activity.ComponentActivity, step: Int, title: String, subtitle: String? = null) {
+    fun header(activity: androidx.activity.ComponentActivity, step: Int, title: String, subtitle: CharSequence? = null) {
         activity.findViewById<ImageButton>(R.id.back).setOnClickListener { activity.onBackPressedDispatcher.onBackPressed() }
         activity.findViewById<TextView>(R.id.step).text = "ÉTAPE $step SUR $STEPS"
         activity.findViewById<TextView>(R.id.title).text = title
@@ -45,6 +45,20 @@ object Ui {
                 }
                 background = rounded(if (i <= step) activity.getColor(R.color.sc_brand) else activity.getColor(R.color.sc_line), dp(activity, 2f).toFloat())
             })
+        }
+    }
+
+    /**
+     * « [icône du sport] + texte » : l'émoji du sport, ou pour le hand l'icône du ballon
+     * dessinée dans l'appli (il n'existe pas d'émoji ballon de hand).
+     */
+    fun withSportIcon(context: Context, sport: Sport, text: String, sizeSp: Float = 15f): CharSequence {
+        if (sport.emoji.isNotEmpty()) return "${sport.emoji} $text"
+        val size = (sizeSp * 1.25f * context.resources.displayMetrics.scaledDensity).toInt()
+        val d = context.getDrawable(R.drawable.ic_handball)!!.apply { setBounds(0, 0, size, size) }
+        return android.text.SpannableString("  $text").apply {
+            setSpan(android.text.style.ImageSpan(d, android.text.style.ImageSpan.ALIGN_BOTTOM), 0, 1,
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
 

@@ -22,7 +22,8 @@ enum class Sport(
     FOOT("foot", "Football", "⚽", true, 45, 10..45, 2, countdown = false, autoStop = false),
     VOLLEY("volley", "Volley-ball", "🏐", false, 0, 0..0, 0, countdown = false, autoStop = false),
     BASKET("basket", "Basket-ball", "🏀", true, 10, 4..12, 4, countdown = true, autoStop = true),
-    HAND("hand", "Handball", "🤾", true, 30, 10..30, 2, countdown = false, autoStop = true);
+    // Pas d'émoji « ballon de hand » : icône dessinée (R.drawable.ic_handball), voir Ui.withSportIcon
+    HAND("hand", "Handball", "", true, 30, 10..30, 2, countdown = false, autoStop = true);
 
     /** Nom d'une période, pour les réglages : « mi-temps », « quart-temps ». */
     val periodNoun: String

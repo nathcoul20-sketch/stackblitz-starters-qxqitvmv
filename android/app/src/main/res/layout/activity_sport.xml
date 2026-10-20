@@ -12,33 +12,17 @@
         android:paddingTop="28dp"
         android:paddingBottom="28dp">
 
-        <!-- Marque -->
-        <LinearLayout
+        <!-- Logo ScoreCast -->
+        <ImageView
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_marginStart="-6dp"
-                android:importantForAccessibility="no"
-                android:scaleType="centerCrop"
-                android:src="@drawable/ic_launcher_foreground" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="ScoreCast"
-                android:textColor="@color/sc_text"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+            android:layout_height="96dp"
+            android:adjustViewBounds="true"
+            android:contentDescription="ScoreCast"
+            android:src="@drawable/logo_scorecast" />
 
         <TextView
             style="@style/StepLabel"
-            android:layout_marginTop="28dp"
+            android:layout_marginTop="24dp"
             android:text="ÉTAPE 1 SUR 5" />
 
         <TextView
