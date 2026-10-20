@@ -14,23 +14,44 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher"
-        android:theme="@style/Theme.FootLive">
+        android:theme="@style/Theme.ScoreCast">
 
+        <!-- Étape 1 : accueil, choix du sport -->
         <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:windowSoftInputMode="adjustResize">
+            android:name=".SportActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- Étape 2 : club (liste, création / modification, médias) -->
+        <activity android:name=".ClubsActivity" android:exported="false" />
+        <activity
+            android:name=".ClubEditActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".MediaActivity" android:exported="false" />
+
+        <!-- Étapes 3 et 4 : plateforme, connexion -->
+        <activity android:name=".PlatformActivity" android:exported="false" />
+        <activity
+            android:name=".ConnectActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Étape 5 : le match -->
+        <activity
+            android:name=".MatchActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
         <activity
             android:name=".StreamActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
             android:exported="false"
             android:screenOrientation="sensorLandscape"
-            android:theme="@style/Theme.FootLive.Fullscreen" />
+            android:theme="@style/Theme.ScoreCast.Fullscreen" />
     </application>
 </manifest>

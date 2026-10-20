@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sc_bg">#0E0F14</color>
+    <color name="sc_surface">#171921</color>
+    <color name="sc_surface2">#20232D</color>
+    <color name="sc_line">#2C303C</color>
+    <color name="sc_text">#F4F5F8</color>
+    <color name="sc_muted">#9A9EAD</color>
+    <color name="sc_brand">#FF6B2C</color>
+    <color name="sc_on_brand">#1A0A00</color>
+    <color name="sc_live">#E5484D</color>
+</resources>

@@ -3,32 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#000000">
-<title>Télécommande Foot</title>
+<meta name="theme-color" content="#0b0b0f">
+<title>ScoreCast · Télécommande</title>
 <style>
   :root {
-    --home: #fff100;
-    --on-home: #000;
-    --away: #343464;
-    --on-away: #fff;
-    --bg: #0b0b0d;
-    --panel: #1b1b22;
-    --line: #2e2e3a;
-    --text: #fff;
-    --muted: #9c9cab;
-    --red: #e30613;
+    --home: #1e4fd8; --on-home: #fff;
+    --away: #2b2b33; --on-away: #fff;
+    --accent: #fff; --on-accent: #000;
+    --bg: #0b0b0f; --panel: #17171e; --panel2: #202029; --line: #2c2c37;
+    --text: #fff; --muted: #9a9aaa; --red: #e5484d; --green: #2f9e44; --amber: #f0a500;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   body { padding: 12px 12px 40px; max-width: 720px; margin: 0 auto; user-select: none; }
   button { font: inherit; color: inherit; border: 0; border-radius: 14px; cursor: pointer;
-    background: #2c2c36; padding: 12px; touch-action: manipulation; }
-  button:active { filter: brightness(1.3); transform: scale(0.98); }
+    background: var(--panel2); padding: 12px; touch-action: manipulation; }
+  button:active { filter: brightness(1.25); transform: scale(0.98); }
+  button:disabled { opacity: .35; }
+  .hide { display: none !important; }
 
-  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  .period { font-weight: 800; font-size: 18px; color: var(--home); text-transform: uppercase; letter-spacing: .5px; }
-  .conn { font-size: 13px; color: var(--muted); }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
+  .period { font-weight: 800; font-size: 18px; text-transform: uppercase; letter-spacing: .5px; }
+  .conn { font-size: 13px; color: var(--muted); white-space: nowrap; }
   .conn.ok::before { content: "● "; color: #3ccf4e; }
   .conn.ko::before { content: "● "; color: #ff4d4d; }
 
@@ -40,52 +37,74 @@
   .clock { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
     background: var(--panel); border-radius: 16px; padding: 10px 10px 10px 16px; margin-bottom: 8px; }
   .time { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
-  .added { font-size: 22px; font-weight: 800; color: var(--home); margin-left: 6px; font-variant-numeric: tabular-nums; }
-  #clockBtn { width: 120px; height: 64px; font-size: 18px; font-weight: 800; background: #2f9e44; }
+  .time.stopped { color: var(--muted); }
+  .added { font-size: 22px; font-weight: 800; color: var(--amber); margin-left: 6px; font-variant-numeric: tabular-nums; }
+  #clockBtn { width: 124px; height: 64px; font-size: 18px; font-weight: 800; background: var(--green); }
   #clockBtn.running { background: #c92a2a; }
   .adjust { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
   .adjust button { padding: 8px 0; font-size: 14px; background: var(--panel); }
 
   .teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .team { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-  .name { text-align: center; font-weight: 800; font-size: 18px; letter-spacing: .5px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .goal { height: 30vh; min-height: 180px; display: flex; flex-direction: column;
+  .name { text-align: center; font-weight: 800; font-size: 17px; letter-spacing: .5px; padding: 8px 6px;
+    border-radius: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .home .name { background: var(--home); color: var(--on-home); }
+  .away .name { background: var(--away); color: var(--on-away); }
+  .big { height: 28vh; min-height: 170px; display: flex; flex-direction: column;
     align-items: center; justify-content: center; border-radius: 18px; }
-  .home .goal { background: var(--home); color: var(--on-home); }
-  .away .goal { background: var(--away); color: var(--on-away); }
-  .score { font-size: min(26vw, 140px); font-weight: 800; line-height: 1; }
+  .home .big { background: var(--home); color: var(--on-home); }
+  .away .big { background: var(--away); color: var(--on-away); }
+  .score { font-size: min(26vw, 140px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
   .hint { font-size: 16px; font-weight: 700; margin-top: 6px; }
+  .bigScore { text-align: center; font-size: min(24vw, 120px); font-weight: 800; line-height: 1.05;
+    background: var(--panel); border-radius: 18px; padding: 10px 0; font-variant-numeric: tabular-nums; }
+  .pts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .pts button { padding: 20px 0; font-size: 24px; font-weight: 800; }
+  .home .pts button { background: var(--home); color: var(--on-home); }
+  .away .pts button { background: var(--away); color: var(--on-away); }
   .minus { font-size: 15px; }
+
   .row3 { display: flex; align-items: center; justify-content: space-between; background: var(--panel);
-    border-radius: 14px; padding: 6px; }
+    border-radius: 14px; padding: 6px; gap: 6px; }
   .row3 span { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .row3 b { font-size: 22px; color: var(--text); }
-  .row3 button { width: 44px; padding: 8px 0; }
+  .row3 b { font-size: 22px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .row3 button { width: 44px; padding: 8px 0; flex: none; }
   .card { display: inline-block; width: 12px; height: 17px; background: var(--red); border-radius: 2px; }
+  .tag { font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 6px; background: var(--amber); color: #000; }
+  .wide { width: 100%; font-weight: 700; }
+  .serve.on { background: #fff; color: #111; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: inline-block; }
+  .dots i.on { background: #fff; }
+  .susp { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; }
+  .susp b { background: #b4232c; border-radius: 8px; padding: 4px 8px; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .suspBtn { background: #5a1b1f; font-weight: 700; }
+  .toBtn { font-weight: 700; flex: 1; }
   .pens { display: none; }
   body.penalties .pens { display: flex; }
   .pens { background: #2b2a10; }
 
-  #scorerBox { display: none; background: var(--panel); border: 2px solid var(--home); border-radius: 16px;
+  #scorerBox { display: none; background: var(--panel); border: 2px solid var(--accent); border-radius: 16px;
     padding: 12px; margin-top: 12px; }
   #scorerBox.show { display: block; }
   #scorerBox p { margin: 0 0 8px; font-weight: 700; }
-  #scorerBox .row { margin-top: 8px; }
 
   .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-  #endPeriod { background: #e6a700; color: #111; font-weight: 700; }
+  #endPeriod { background: var(--amber); color: #111; font-weight: 700; }
 
   details { margin-top: 14px; background: var(--panel); border-radius: 14px; padding: 12px; }
   summary { font-weight: 700; cursor: pointer; }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
   input { width: 100%; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid #444;
-    background: #111; color: var(--text); user-select: text; }
+    background: #0f0f14; color: var(--text); user-select: text; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
   .danger { background: #5a1b1b; }
+  .swatches { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; }
+  .swatches button { aspect-ratio: 1; padding: 0; border-radius: 50%; border: 2px solid transparent; }
+  .swatches button.sel { border-color: #fff; box-shadow: 0 0 0 2px #000 inset; }
   .goals { list-style: none; padding: 0; margin: 10px 0 0; }
   .goals li { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-top: 1px solid var(--line); }
-  .goals .m { width: 52px; color: var(--home); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .goals .m { width: 52px; color: var(--amber); font-weight: 700; font-variant-numeric: tabular-nums; }
   .goals .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .goals .t small { color: var(--muted); }
   .goals button { padding: 6px 10px; font-size: 13px; }
@@ -94,7 +113,7 @@
   #pinBox { display: none; position: fixed; inset: 0; background: var(--bg); padding: 24px; z-index: 10; }
   #pinBox.show { display: block; }
   #pinBox input { font-size: 32px; text-align: center; letter-spacing: 8px; margin: 16px 0; }
-  #pinBox button { width: 100%; background: var(--home); color: #000; font-weight: 700; }
+  #pinBox button { width: 100%; background: #fff; color: #000; font-weight: 700; }
   .err { color: #ff6b6b; min-height: 20px; font-size: 14px; }
 </style>
 </head>
@@ -109,7 +128,7 @@
 </div>
 
 <div class="top">
-  <div class="period" id="period">1re mi-temps</div>
+  <div class="period" id="period">–</div>
   <div class="conn" id="conn">Connexion…</div>
 </div>
 
@@ -117,36 +136,26 @@
 <div class="scenes">
   <button data-a="scene_intro" data-scene="intro">Intro</button>
   <button data-a="scene_match" data-scene="match">Match</button>
-  <button data-a="scene_halftime" data-scene="halftime">Mi-temps</button>
+  <button data-a="scene_halftime" data-scene="halftime" id="breakBtn">Mi-temps</button>
   <button data-a="scene_outro" data-scene="outro">Fin</button>
 </div>
 
-<div class="clock">
-  <div><span class="time" id="time">00:00</span><span class="added" id="added"></span></div>
-  <button id="clockBtn" data-a="clock_toggle">▶ Départ</button>
-</div>
-<div class="adjust">
-  <button data-a="clock_adjust" data-v="-60">−1 min</button>
-  <button data-a="clock_adjust" data-v="-10">−10 s</button>
-  <button data-a="clock_adjust" data-v="10">+10 s</button>
-  <button data-a="clock_adjust" data-v="60">+1 min</button>
+<div id="clockBox" class="hide">
+  <div class="clock">
+    <div><span class="time" id="time">00:00</span><span class="added" id="added"></span></div>
+    <button id="clockBtn" data-a="clock_toggle">▶ Départ</button>
+  </div>
+  <div class="adjust">
+    <button data-a="clock_adjust" data-v="-60">−1 min</button>
+    <button data-a="clock_adjust" data-v="-10" id="m10">−10 s</button>
+    <button data-a="clock_adjust" data-v="10" id="p10">+10 s</button>
+    <button data-a="clock_adjust" data-v="60">+1 min</button>
+  </div>
 </div>
 
 <div class="teams">
-  <div class="team home" id="home">
-    <div class="name" id="homeName">DOMICILE</div>
-    <button class="goal" data-a="home_goal"><div class="score" id="homeGoals">0</div><div class="hint">⚽ BUT</div></button>
-    <button class="minus" data-a="home_goal_minus">Retirer un but</button>
-    <div class="row3"><button data-a="home_red_minus">−</button><span><i class="card"></i><b id="homeRed">0</b></span><button data-a="home_red_plus">+</button></div>
-    <div class="row3 pens"><button data-a="home_pen_minus">−</button><span>TAB <b id="homePens">0</b></span><button data-a="home_pen">+</button></div>
-  </div>
-  <div class="team away" id="away">
-    <div class="name" id="awayName">VISITEUR</div>
-    <button class="goal" data-a="away_goal"><div class="score" id="awayGoals">0</div><div class="hint">⚽ BUT</div></button>
-    <button class="minus" data-a="away_goal_minus">Retirer un but</button>
-    <div class="row3"><button data-a="away_red_minus">−</button><span><i class="card"></i><b id="awayRed">0</b></span><button data-a="away_red_plus">+</button></div>
-    <div class="row3 pens"><button data-a="away_pen_minus">−</button><span>TAB <b id="awayPens">0</b></span><button data-a="away_pen">+</button></div>
-  </div>
+  <div class="team home" data-team="home"></div>
+  <div class="team away" data-team="away"></div>
 </div>
 
 <div id="scorerBox">
@@ -154,43 +163,69 @@
   <input id="scorerInput" maxlength="24" placeholder="Nom ou numéro (facultatif)" autocomplete="off" autocapitalize="characters">
   <div class="row">
     <button id="scorerSkip">Passer</button>
-    <button id="scorerOk" style="background:var(--home);color:#000;font-weight:700">Valider</button>
+    <button id="scorerOk" style="background:#fff;color:#000;font-weight:700">Valider</button>
   </div>
 </div>
 
 <div class="actions">
   <button data-a="undo">↶ Annuler</button>
-  <button id="endPeriod">Fin 1re mi-temps</button>
+  <button id="endPeriod">Fin de période</button>
 </div>
 
-<details id="goalsBox">
+<details id="goalsBox" class="hide">
   <summary>Buts du match</summary>
   <ul class="goals" id="goals"></ul>
   <div class="empty" id="noGoals">Aucun but pour l'instant.</div>
 </details>
 
-<details>
+<details id="settings">
   <summary>Réglages du match</summary>
   <label for="cfgHome">Équipe à domicile</label>
   <input id="cfgHome" maxlength="20">
-  <label for="cfgAway">Équipe visiteuse</label>
+  <label for="cfgAway">Équipe adverse</label>
   <input id="cfgAway" maxlength="20">
+  <label>Couleur de l'équipe adverse</label>
+  <div class="swatches" id="swatches"></div>
   <label for="cfgComp">Compétition</label>
   <input id="cfgComp" maxlength="60">
-  <label for="cfgHalf">Durée d'une mi-temps (minutes)</label>
-  <input id="cfgHalf" inputmode="numeric" maxlength="2">
+  <div id="periodCfg">
+    <label for="cfgPeriod" id="cfgPeriodLabel">Durée d'une mi-temps (minutes)</label>
+    <input id="cfgPeriod" inputmode="numeric" maxlength="2">
+  </div>
   <div class="row">
     <button id="saveCfg">Enregistrer</button>
     <button data-a="toggle_overlay" id="overlayBtn">Masquer l'overlay</button>
   </div>
-  <div class="row">
+  <div class="row" id="footExtra">
     <button id="extraBtn">Prolongations</button>
     <button id="pensBtn">Tirs au but</button>
+  </div>
+  <div class="row hide" id="basketExtra">
+    <button id="otBtn" style="grid-column: span 2">Prolongation (5 min)</button>
   </div>
   <div class="row">
     <button class="danger" id="resetBtn" style="grid-column: span 2">Nouveau match (remise à zéro)</button>
   </div>
 </details>
+
+<template id="tpl-goal">
+  <div class="name"></div>
+  <button class="big" data-x="plus"><div class="score" data-f="score">0</div><div class="hint" data-f="hint">BUT</div></button>
+  <button class="minus" data-x="minus">Retirer un but</button>
+</template>
+
+<template id="tpl-basket">
+  <div class="name"></div>
+  <div class="bigScore" data-f="score">0</div>
+  <div class="pts">
+    <button data-x="plus" data-v="1">+1</button>
+    <button data-x="plus" data-v="2">+2</button>
+    <button data-x="plus" data-v="3">+3</button>
+  </div>
+  <button class="minus" data-x="minus">−1 point</button>
+  <div class="row3"><button data-x="foul_minus">−</button><span>Fautes <b data-f="fouls">0</b><i class="tag hide" data-f="bonus">BONUS</i></span><button data-x="foul_plus">+</button></div>
+  <div class="row3"><button class="toBtn" data-x="timeout" data-confirm="timeout">Temps mort</button><span class="dots" data-f="dots"></span><button data-x="timeout_minus">−</button></div>
+</template>
 
 <script>
 (function () {
@@ -200,14 +235,17 @@
   var state = null;
   var receivedAt = 0;
   var busy = false;
-  var askScorerFor = -1; // index du but dont on demande le buteur
+  var builtFor = '';
+  var askScorerFor = -1;
+  var awayColorPick = null;
 
   function $(id) { return document.getElementById(id); }
+  function q(root, sel) { return root.querySelector(sel); }
 
   function api(path, extra, method) {
-    var q = new URLSearchParams(extra || {});
-    q.set('pin', pin);
-    return fetch(path + '?' + q.toString(), { method: method || 'GET', cache: 'no-store' })
+    var p = new URLSearchParams(extra || {});
+    p.set('pin', pin);
+    return fetch(path + '?' + p.toString(), { method: method || 'GET', cache: 'no-store' })
       .then(function (r) {
         return r.json().then(function (body) {
           if (r.status === 401) { askPin('Code PIN incorrect'); throw new Error('pin'); }
@@ -223,57 +261,183 @@
     c.textContent = ok ? 'Connecté' : 'Déconnecté';
   }
 
-  function fmt(ms) {
-    var t = Math.floor(ms / 1000);
-    var m = Math.floor(t / 60), s = t % 60;
-    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function fmt(ms) { var t = Math.floor(ms / 1000); return pad(Math.floor(t / 60)) + ':' + pad(t % 60); }
+  function fmtShort(ms) { var t = Math.ceil(ms / 1000); return Math.floor(t / 60) + ':' + pad(t % 60); }
+
+  // ---------------------------------------------------------------- Construction selon le sport
+
+  var LABELS = {
+    foot: { hint: '⚽ BUT', minus: 'Retirer un but' },
+    hand: { hint: '🤾 BUT', minus: 'Retirer un but' },
+    volley: { hint: '🏐 POINT', minus: '−1 point' }
+  };
+
+  function build(sport) {
+    builtFor = sport;
+    document.body.className = 'sport-' + sport;
+    ['home', 'away'].forEach(function (team) {
+      var box = q(document, '.team.' + team);
+      box.innerHTML = '';
+      var tpl = sport === 'basket' ? 'tpl-basket' : 'tpl-goal';
+      box.appendChild($(tpl).content.cloneNode(true));
+      if (sport !== 'basket') {
+        q(box, '[data-f=hint]').textContent = LABELS[sport].hint;
+        q(box, '[data-x=minus]').textContent = LABELS[sport].minus;
+      }
+      if (sport === 'foot') {
+        box.insertAdjacentHTML('beforeend',
+          '<div class="row3"><button data-x="red_minus">−</button><span><i class="card"></i><b data-f="red">0</b></span><button data-x="red_plus">+</button></div>' +
+          '<div class="row3 pens"><button data-x="pen_minus">−</button><span>TAB <b data-f="pens">0</b></span><button data-x="pen">+</button></div>');
+      }
+      if (sport === 'volley') {
+        box.insertAdjacentHTML('beforeend',
+          '<div class="row3"><button data-x="set_minus">−</button><span>Sets <b data-f="sets">0</b></span><button data-x="set_plus">+</button></div>' +
+          '<button class="wide serve" data-serve="' + team + '">Au service</button>');
+      }
+      if (sport === 'hand') {
+        box.insertAdjacentHTML('beforeend',
+          '<div class="row3"><button class="toBtn" data-x="timeout" data-confirm="timeout">Temps mort</button><span class="dots" data-f="dots"></span><button data-x="timeout_minus">−</button></div>' +
+          '<div class="row3"><button class="suspBtn toBtn" data-x="susp" data-confirm="susp">Exclusion 2\'</button><button data-x="susp_minus">−</button></div>' +
+          '<div class="susp" data-f="susp"></div>');
+      }
+      box.querySelectorAll('[data-x]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var verb = b.getAttribute('data-x');
+          var c = b.getAttribute('data-confirm');
+          var name = team === 'home' ? state.homeName : state.awayName;
+          if (c === 'timeout' && !confirm('Temps mort pour ' + name + ' ? Le chrono s\'arrête.')) return;
+          if (c === 'susp' && !confirm('Exclusion de 2 minutes pour ' + name + ' ?')) return;
+          var v = b.getAttribute('data-v');
+          action(team + '_' + verb, v ? { v: v } : null).then(function (s) {
+            if (s && s.sport === 'foot' && verb === 'plus') showScorer(s.goals.length - 1);
+          });
+        });
+      });
+      box.querySelectorAll('[data-serve]').forEach(function (b) {
+        b.addEventListener('click', function () { action('serve_' + team); });
+      });
+    });
+    var clock = sport !== 'volley';
+    $('clockBox').classList.toggle('hide', !clock);
+    $('periodCfg').classList.toggle('hide', !clock);
+    $('goalsBox').classList.toggle('hide', sport !== 'foot');
+    $('footExtra').classList.toggle('hide', sport !== 'foot');
+    $('basketExtra').classList.toggle('hide', sport !== 'basket');
+    // Au basket, les réglages agissent sur le temps restant
+    $('m10').textContent = '−10 s'; $('p10').textContent = '+10 s';
   }
 
-  // Le chrono tourne sur le téléphone qui filme ; ici on l'affiche en continuant à compter
-  // entre deux mises à jour.
+  // ---------------------------------------------------------------- Affichage
+
   function drawClock() {
-    if (!state) return;
+    if (!state || state.sport === 'volley') return;
     var elapsed = state.elapsedMs + (state.clockRunning ? Date.now() - receivedAt : 0);
     var len = state.periodLengthMs;
-    $('time').textContent = fmt(state.periodOffsetMs + Math.min(elapsed, len));
-    var ex = Math.floor((elapsed - len) / 1000);
-    $('added').textContent = (state.clockStarted && elapsed >= len) ? '+' + Math.floor(ex / 60) + ':' + (ex % 60 < 10 ? '0' : '') + ex % 60 : '';
+    var t = $('time');
+    var added = '';
+    if (state.countdown) {
+      var rem = Math.max(0, len - elapsed);
+      if (rem < 60000 && state.clockStarted) {
+        var tenths = Math.ceil(rem / 100);
+        t.textContent = Math.floor(tenths / 10) + '.' + (tenths % 10);
+      } else {
+        t.textContent = fmt(rem + 999);
+      }
+    } else if (state.sport === 'hand') {
+      t.textContent = fmt(state.periodOffsetMs + Math.min(elapsed, len));
+    } else {
+      t.textContent = fmt(state.periodOffsetMs + Math.min(elapsed, len));
+      var ex = Math.floor((elapsed - len) / 1000);
+      if (state.clockStarted && elapsed >= len) added = '+' + Math.floor(ex / 60) + ':' + pad(ex % 60);
+    }
+    $('added').textContent = added;
+    t.classList.toggle('stopped', !state.clockRunning && state.clockStarted);
+    // Exclusions (hand) : décompte entre deux mises à jour
+    if (state.sport === 'hand') {
+      var gone = state.clockRunning ? Date.now() - receivedAt : 0;
+      ['home', 'away'].forEach(function (team) {
+        var list = state[team + 'Susp'] || [];
+        var box = q(document, '.team.' + team + ' [data-f=susp]');
+        if (!box) return;
+        box.innerHTML = list.map(function (ms) { return ms - gone; }).filter(function (ms) { return ms > 0; })
+          .map(function (ms) { return '<b>' + fmtShort(ms) + '</b>'; }).join('');
+      });
+    }
+  }
+
+  function dots(n, total) {
+    var h = '';
+    for (var i = 0; i < total; i++) h += '<i class="' + (i < n ? 'on' : '') + '"></i>';
+    return h;
   }
 
   function render(s) {
-    // Appli mise à jour depuis l'ouverture de la page : on recharge la nouvelle télécommande
     if (s.pageVersion && s.pageVersion !== PAGE_VERSION) { location.reload(); return; }
     var firstLoad = state === null;
     state = s;
     receivedAt = Date.now();
+    if (builtFor !== s.sport) build(s.sport);
+    var root = document.documentElement.style;
+    root.setProperty('--home', s.homeColor); root.setProperty('--on-home', s.homeOnColor);
+    root.setProperty('--away', s.awayColor); root.setProperty('--on-away', s.awayOnColor);
+    root.setProperty('--accent', s.homeAccent);
     $('period').textContent = s.periodLabel;
-    $('homeName').textContent = s.homeName;
-    $('awayName').textContent = s.awayName;
-    $('homeGoals').textContent = s.homeGoals;
-    $('awayGoals').textContent = s.awayGoals;
-    $('homeRed').textContent = s.homeRed;
-    $('awayRed').textContent = s.awayRed;
-    $('homePens').textContent = s.homePens;
-    $('awayPens').textContent = s.awayPens;
+    $('breakBtn').textContent = s.breakLabel;
+    ['home', 'away'].forEach(function (team) {
+      var box = q(document, '.team.' + team);
+      q(box, '.name').textContent = s[team + 'Name'];
+      q(box, '[data-f=score]').textContent = s[team + 'Score'];
+      var f;
+      if ((f = q(box, '[data-f=red]'))) f.textContent = s[team + 'Red'];
+      if ((f = q(box, '[data-f=pens]'))) f.textContent = s[team + 'Pens'];
+      if ((f = q(box, '[data-f=sets]'))) f.textContent = s[team + 'Sets'];
+      if ((f = q(box, '[data-f=fouls]'))) f.textContent = s[team + 'Fouls'];
+      if ((f = q(box, '[data-f=bonus]'))) f.classList.toggle('hide', s[team + 'Fouls'] < 5);
+      if ((f = q(box, '[data-f=dots]'))) f.innerHTML = dots(s.timeoutsAllowed - s[team + 'Timeouts'], s.timeoutsAllowed);
+      if ((f = q(box, '[data-x=timeout]'))) f.disabled = s[team + 'Timeouts'] >= s.timeoutsAllowed;
+      if ((f = q(box, '[data-serve]'))) f.classList.toggle('on', s.serving === team);
+    });
     document.body.classList.toggle('penalties', !!s.penalties);
     $('pensBtn').textContent = s.penalties ? 'Arrêter les tirs au but' : 'Tirs au but';
     var btn = $('clockBtn');
     btn.classList.toggle('running', s.clockRunning);
+    var timeUp = s.countdown || s.sport === 'hand' ? s.elapsedMs >= s.periodLengthMs : false;
     btn.textContent = s.clockRunning ? '❚❚ Pause' : (s.clockStarted ? '▶ Reprendre' : '▶ Départ');
+    btn.disabled = !s.clockRunning && timeUp;
     $('endPeriod').textContent = s.endPeriodLabel;
     document.querySelectorAll('[data-scene]').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-scene') === s.scene);
     });
     $('overlayBtn').textContent = s.overlayVisible ? "Masquer l'overlay" : "Afficher l'overlay";
+    $('cfgPeriodLabel').textContent = 'Durée d\'un' + (s.periodNoun === 'mi-temps' ? 'e ' : ' ') + s.periodNoun + ' (minutes)';
     if (firstLoad || document.activeElement.tagName !== 'INPUT') {
       $('cfgHome').value = s.homeName;
       $('cfgAway').value = s.awayName;
       $('cfgComp').value = s.competition;
-      $('cfgHalf').value = s.halfLength;
+      $('cfgPeriod').value = s.periodMinutes;
     }
-    renderGoals(s);
-    if (askScorerFor >= s.goals.length) hideScorer();
+    if (firstLoad || !$('settings').open) awayColorPick = s.awayColor;
+    renderSwatches(s.palette || []);
+    if (s.sport === 'foot') renderGoals(s);
+    if (askScorerFor >= (s.goals || []).length) hideScorer();
     drawClock();
+  }
+
+  var swatchesFor = '';
+  function renderSwatches(palette) {
+    var key = palette.join(',') + '|' + awayColorPick;
+    if (key === swatchesFor) return;
+    swatchesFor = key;
+    var box = $('swatches');
+    box.innerHTML = '';
+    palette.forEach(function (c) {
+      var b = document.createElement('button');
+      b.style.background = c;
+      if (awayColorPick && c.toLowerCase() === awayColorPick.toLowerCase()) b.className = 'sel';
+      b.addEventListener('click', function () { awayColorPick = c; renderSwatches(palette); });
+      box.appendChild(b);
+    });
   }
 
   function teamName(g) { return g.team === 'home' ? state.homeName : state.awayName; }
@@ -310,13 +474,15 @@
     if (document.activeElement.tagName === 'INPUT') document.activeElement.blur();
   }
 
+  // ---------------------------------------------------------------- Échanges avec le téléphone
+
   function action(a, extra) {
     if (busy) return Promise.resolve();
     busy = true;
     if (navigator.vibrate) navigator.vibrate(30);
-    var q = { a: a };
-    if (extra) for (var k in extra) q[k] = extra[k];
-    return api('/api/action', q, 'POST')
+    var p = { a: a };
+    if (extra) for (var k in extra) p[k] = extra[k];
+    return api('/api/action', p, 'POST')
       .then(function (s) { setConn(true); render(s); return s; })
       .catch(function (e) { if (e.message !== 'pin') setConn(false); })
       .then(function (s) { busy = false; return s; });
@@ -344,12 +510,8 @@
 
   document.querySelectorAll('[data-a]').forEach(function (b) {
     b.addEventListener('click', function () {
-      var a = b.getAttribute('data-a');
       var v = b.getAttribute('data-v');
-      action(a, v ? { v: v } : null).then(function (s) {
-        // Après un but : proposer de saisir le buteur
-        if (s && (a === 'home_goal' || a === 'away_goal')) showScorer(s.goals.length - 1);
-      });
+      action(b.getAttribute('data-a'), v ? { v: v } : null);
     });
   });
 
@@ -363,29 +525,42 @@
 
   $('endPeriod').addEventListener('click', function () {
     if (!state) return;
-    var msg = state.endPeriodLabel + ' ?\n\nScore : ' + state.homeName + ' ' + state.homeGoals + ' - ' +
-      state.awayGoals + ' ' + state.awayName + '\nLe chrono s\'arrête.';
-    if (state.period === 1) msg += '\nL\'écran « Mi-temps » s\'affiche.';
-    else if (state.period !== 3) msg += '\nL\'écran de fin s\'affiche.';
+    var msg = state.endPeriodLabel + ' ?\n\nScore : ' + state.homeName + ' ' + state.homeScore + ' - ' +
+      state.awayScore + ' ' + state.awayName;
+    if (state.sport === 'volley') {
+      if (state.homeScore === state.awayScore) { alert('Égalité : le set ne peut pas être attribué.'); return; }
+      msg += '\nLe set est attribué à ' + (state.homeScore > state.awayScore ? state.homeName : state.awayName) + '.';
+    } else {
+      msg += '\nLe chrono s\'arrête.';
+      if (state.endPeriodLabel === 'Fin du match') msg += '\nL\'écran de fin s\'affiche.';
+      else if ((state.sport === 'basket' && state.period === 2) || (state.sport !== 'basket' && state.period === 1)) msg += '\nL\'écran « Mi-temps » s\'affiche.';
+    }
     if (confirm(msg)) action('end_period');
   });
 
   $('extraBtn').addEventListener('click', function () {
-    if (confirm('Passer aux prolongations ? Le chrono repart de ' + 2 * state.halfLength + ':00, arrêté.')) action('extra_time');
+    if (confirm('Passer aux prolongations ? Le chrono repart de ' + 2 * state.periodMinutes + ':00, arrêté.')) action('extra_time');
   });
-
+  $('otBtn').addEventListener('click', function () {
+    if (confirm('Jouer une prolongation de 5 minutes ?')) action('extra_time');
+  });
   $('pensBtn').addEventListener('click', function () {
     if (state.penalties || confirm('Commencer la séance de tirs au but ? Le chrono s\'arrête.')) action('penalties_toggle');
   });
-
   $('resetBtn').addEventListener('click', function () {
-    if (confirm('Remettre tout le match à zéro (score, chrono, buteurs) ?')) action('reset');
+    if (confirm('Remettre tout le match à zéro ?')) action('reset');
   });
 
   $('saveCfg').addEventListener('click', function () {
-    var half = parseInt($('cfgHalf').value, 10);
-    if (!(half >= 10 && half <= 45)) { alert('Durée d\'une mi-temps : entre 10 et 45 minutes.'); return; }
-    api('/api/config', { home: $('cfgHome').value, away: $('cfgAway').value, competition: $('cfgComp').value, half: half }, 'POST')
+    var p = { home: $('cfgHome').value, away: $('cfgAway').value, competition: $('cfgComp').value };
+    if (state.sport !== 'volley') {
+      var m = parseInt($('cfgPeriod').value, 10);
+      var r = state.periodRange;
+      if (!(m >= r[0] && m <= r[1])) { alert('Durée : entre ' + r[0] + ' et ' + r[1] + ' minutes.'); return; }
+      p.period = m;
+    }
+    if (awayColorPick) p.awayColor = awayColorPick;
+    api('/api/config', p, 'POST')
       .then(function (s) { render(s); document.activeElement.blur(); })
       .catch(function () {});
   });
@@ -396,7 +571,7 @@
   }
   if (!pin) askPin(); else refresh();
   setInterval(refresh, 1000);
-  setInterval(drawClock, 250);
+  setInterval(drawClock, 100);
 })();
 </script>
 </body>

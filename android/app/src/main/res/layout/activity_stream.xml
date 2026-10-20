@@ -71,7 +71,7 @@
         <Button
             android:id="@+id/live"
             style="@style/ControlButton"
-            app:backgroundTint="#D00A0A"
+            app:backgroundTint="#E5484D"
             android:text="● LIVE" />
 
         <Button
@@ -90,25 +90,24 @@
             android:text="Caméra ⇄" />
     </LinearLayout>
 
-    <!-- Panneau de score local (secours si pas de télécommande) -->
-    <LinearLayout
-        android:id="@+id/scorePanel"
+    <!-- Panneau de score local (secours si pas de télécommande), rempli selon le sport -->
+    <HorizontalScrollView
+        android:id="@+id/scorePanelBox"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginHorizontal="140dp"
         android:layout_marginBottom="12dp"
         android:background="@drawable/chip_bg"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="6dp"
+        android:scrollbars="none"
         android:visibility="gone">
 
-        <Button android:id="@+id/homeMinus" style="@style/ScoreButton" android:text="−" />
-        <Button android:id="@+id/homePlus" style="@style/ScoreButton" android:layout_width="wrap_content" app:backgroundTint="#FFF100" android:textColor="#000000" android:text="But" />
-        <Button android:id="@+id/clockToggle" style="@style/ScoreButton" android:layout_width="wrap_content" android:text="▶ Chrono" />
-        <Button android:id="@+id/undo" style="@style/ScoreButton" android:layout_width="wrap_content" android:text="Annuler" />
-        <Button android:id="@+id/endPeriod" style="@style/ScoreButton" android:layout_width="wrap_content" android:text="Fin de période" />
-        <Button android:id="@+id/awayPlus" style="@style/ScoreButton" android:layout_width="wrap_content" app:backgroundTint="#343464" android:text="But" />
-        <Button android:id="@+id/awayMinus" style="@style/ScoreButton" android:text="−" />
-    </LinearLayout>
+        <LinearLayout
+            android:id="@+id/scorePanel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="6dp" />
+    </HorizontalScrollView>
 </FrameLayout>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="28dp">
+
+        <include layout="@layout/step_header" />
+
+        <!-- Aperçu de l'écran généré quand rien n'est importé -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            app:cardCornerRadius="14dp"
+            xmlns:app="http://schemas.android.com/apk/res-auto">
+
+            <ImageView
+                android:id="@+id/generated"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:contentDescription="Aperçu de l'écran d'intro généré" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            style="@style/Hint"
+            android:layout_marginTop="8dp"
+            android:text="Sans vidéo importée, ScoreCast affiche automatiquement un écran aux couleurs du club (ici, l'intro)." />
+
+        <LinearLayout
+            android:id="@+id/slots"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:orientation="vertical" />
+
+        <TextView
+            style="@style/SectionTitle"
+            android:text="Formats conseillés" />
+
+        <TextView
+            style="@style/Hint"
+            android:text="• Vidéos : MP4 (H.264), format paysage 16:9, 1280×720 ou 1920×1080.\n• Transition : vidéo courte (1 à 2 s) qui couvre tout l'écran en son milieu.\n• Le son des vidéos n'est pas diffusé : pour de la musique, importez une musique d'attente (MP3 ou M4A).\n• Les fichiers sont copiés dans l'appli : vous pouvez ensuite les supprimer de la galerie." />
+    </LinearLayout>
+</ScrollView>

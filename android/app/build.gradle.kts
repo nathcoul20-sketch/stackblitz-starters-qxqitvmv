@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.footlive.app"
+    namespace = "com.scorecast.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.footlive.app"
+        applicationId = "com.scorecast.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

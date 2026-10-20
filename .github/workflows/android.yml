@@ -33,16 +33,16 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FootLive-apk
+          name: ScoreCast-apk
           path: android/app/build/outputs/apk/release/*.apk
 
       # Lien de téléchargement direct (page « Releases » du dépôt), plus simple depuis un téléphone
-      - name: Publier l'APK (release foot-live)
-        if: github.ref == 'refs/heads/claude/foot-live-maybeleger'
+      - name: Publier l'APK (release scorecast)
+        if: github.ref == 'refs/heads/claude/scorecast'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/release/*.apk FootLive.apk
-          gh release view foot-live >/dev/null 2>&1 || gh release create foot-live --target "$GITHUB_SHA" --prerelease \
-            --title "Foot Live — Maybéléger FC" --notes "APK de l'appli Foot Live. Sur le téléphone : télécharger FootLive.apk, l'ouvrir, autoriser l'installation."
-          gh release upload foot-live FootLive.apk --clobber
+          cp app/build/outputs/apk/release/*.apk ScoreCast.apk
+          gh release view scorecast >/dev/null 2>&1 || gh release create scorecast --target "$GITHUB_SHA" --prerelease \
+            --title "ScoreCast — live multisport" --notes "APK de l'appli ScoreCast (foot, volley, basket, hand). Sur le téléphone : télécharger ScoreCast.apk, l'ouvrir, autoriser l'installation."
+          gh release upload scorecast ScoreCast.apk --clobber
