@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: android
@@ -32,3 +34,20 @@ jobs:
         with:
           name: VolleyLive-apk
           path: android/app/build/outputs/apk/release/*.apk
+
+      # Lien de téléchargement fixe, toujours vers la dernière version :
+      # https://github.com/<dépôt>/releases/download/apk-latest/VolleyLive.apk
+      - name: Publish latest APK
+        if: github.ref == 'refs/heads/claude/android-volley-live-overlay-aaka1k'
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk VolleyLive.apk
+          NOTES="Dernière version de Volley Live ($(date -u '+%d/%m/%Y %H:%M') UTC, commit ${GITHUB_SHA::7}). Télécharger VolleyLive.apk puis l'installer sur le téléphone."
+          if gh release view apk-latest >/dev/null 2>&1; then
+            gh release edit apk-latest --notes "$NOTES"
+          else
+            gh release create apk-latest --title "Volley Live – dernière version" --notes "$NOTES" --target "$GITHUB_SHA"
+          fi
+          gh release upload apk-latest VolleyLive.apk --clobber
