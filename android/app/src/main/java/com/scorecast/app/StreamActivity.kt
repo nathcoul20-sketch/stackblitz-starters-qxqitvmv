@@ -260,6 +260,10 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     private fun confirmEndPeriod() {
         val s = ScoreManager.state
+        if (s.sport == Sport.VOLLEY && s.homeScore == s.awayScore) {
+            toast("Égalité : le set ne peut pas être attribué")
+            return
+        }
         AlertDialog.Builder(this)
             .setTitle(s.endPeriodLabel + " ?")
             .setMessage("Score : ${s.homeName} ${s.homeScore} - ${s.awayScore} ${s.awayName}." +

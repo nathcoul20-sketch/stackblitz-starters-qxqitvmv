@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -268,14 +269,18 @@ class OverlayRenderer(
         val accent = s.homeAccent
         val highlight = highlight(s)
 
-        // Fond : dégradé de la couleur du club vers le noir, et deux bandes obliques
-        fill.shader = LinearGradient(0f, 0f, 1920f, 1080f,
-            Colors.shade(s.homeColor, 0.55f), Color.rgb(8, 8, 12), Shader.TileMode.CLAMP)
+        // Fond sombre, halo de la couleur du club derrière le logo, et angles décoratifs aux couleurs
+        // du club (en haut à gauche, en bas à droite) qui ne passent jamais sous les textes
+        fill.shader = LinearGradient(0f, 0f, 0f, 1080f, Color.rgb(24, 25, 32), Color.rgb(6, 6, 9), Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, 1920f, 1080f, fill)
+        fill.shader = RadialGradient(960f, 330f, 820f,
+            intArrayOf(withAlpha(s.homeColor, 110), withAlpha(s.homeColor, 0)), null, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, 1920f, 1080f, fill)
         fill.shader = null
-        fill.alpha = 255
-        polygonAlpha(c, accent, 40, 1240f, 0f, 1420f, 0f, 900f, 1080f, 720f, 1080f)
-        polygonAlpha(c, s.homeColor, 70, 1460f, 0f, 1520f, 0f, 1000f, 1080f, 940f, 1080f)
+        polygon(c, s.homeColor, 0f, 0f, 330f, 0f, 0f, 620f)
+        polygon(c, accent, 360f, 0f, 392f, 0f, 0f, 737f, 0f, 677f)
+        polygon(c, s.homeColor, 1920f, 1080f, 1590f, 1080f, 1920f, 460f)
+        polygon(c, accent, 1560f, 1080f, 1528f, 1080f, 1920f, 343f, 1920f, 403f)
 
         // Logo
         var y = 110f
@@ -284,7 +289,7 @@ class OverlayRenderer(
             drawLogo(c, 960 - box / 2, y, box, box)
             y += box + 30
         } else {
-            y += 120
+            y += 230 // sans logo : bloc recentré verticalement
         }
 
         val title = when (scene) {
@@ -450,12 +455,7 @@ class OverlayRenderer(
         c.drawPath(path(pts), fill)
     }
 
-    private fun polygonAlpha(c: Canvas, color: Int, alpha: Int, vararg pts: Float) {
-        fill.color = color
-        fill.alpha = alpha
-        c.drawPath(path(pts), fill)
-        fill.alpha = 255
-    }
+    private fun withAlpha(color: Int, alpha: Int) = Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
 
     private fun path(pts: FloatArray) = Path().apply {
         moveTo(pts[0], pts[1])
