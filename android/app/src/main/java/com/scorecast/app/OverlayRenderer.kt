@@ -74,89 +74,97 @@ class OverlayRenderer(
         val accentOn = Colors.onColor(accent)
         val highlight = highlight(s)
 
-        var x = X0
-        val top = Y0
-        val bottom = top + ROW
-
-        // (pas de logo dans le tableau de score : trop petit pour être net ; il est sur les écrans
-        // d'intro, de pause et de fin)
         val start = X0
-        val homeX = x
-        rect(c, homeX, top, NAME_W, ROW, s.homeColor)
-        x += NAME_W
-
-        // Partie centrale : score (ou sets + points au volley)
-        val middleX = x
-        val middleW: Float
+        var y: Float
+        val w: Float
         if (s.sport == Sport.VOLLEY) {
-            middleW = SETS_W * 2 + PTS_W
-            rect(c, x, top, SETS_W, ROW, DARK)
-            drawText(c, s.homeSets.toString(), x + SETS_W / 2, top + 50, 50f, bebas, highlight)
-            rect(c, x + SETS_W, top, PTS_W, ROW, accent)
-            drawText(c, "${s.homeScore} - ${s.awayScore}", x + SETS_W + PTS_W / 2, top + 52, 60f, bebas, accentOn,
-                maxWidth = PTS_W - 16)
-            rect(c, x + SETS_W + PTS_W, top, SETS_W, ROW, DARK)
-            drawText(c, s.awaySets.toString(), x + SETS_W * 1.5f + PTS_W, top + 50, 50f, bebas, highlight)
+            // Volley : une ligne par équipe, avec les scores de chaque set joué
+            w = drawVolleyRows(c, s, accent, accentOn, highlight)
+            y = Y0 + V_ROW * 2
         } else {
-            middleW = SCORE_W
-            rect(c, x, top, SCORE_W, ROW, accent)
-            drawText(c, "${s.homeScore} - ${s.awayScore}", x + SCORE_W / 2, top + 52, 60f, bebas, accentOn,
-                maxWidth = SCORE_W - 16)
-        }
-        x += middleW
-        val awayX = x
-        rect(c, awayX, top, NAME_W, ROW, s.awayColor)
-        x += NAME_W
-        val end = x
+            var x = X0
+            val top = Y0
+            val bottom = top + ROW
 
-        // Liseré sous les noms (couleur secondaire du club)
-        rect(c, homeX, bottom - 4, NAME_W, 4f, accent)
-        rect(c, awayX, bottom - 4, NAME_W, 4f, accent)
+            // (pas de logo dans le tableau de score : trop petit pour être net ; il est sur les écrans
+            // d'intro, de pause et de fin)
+            val homeX = x
+            rect(c, homeX, top, NAME_W, ROW, s.homeColor)
+            x += NAME_W
 
-        // Foot : cartons rouges, côté score
-        var homeMark = 0f
-        var awayMark = 0f
-        if (s.sport == Sport.FOOT) {
-            for (i in 0 until s.homeRed) rect(c, middleX - 14 - i * 16 - 12, top + 14, 12f, 20f, RED)
-            for (i in 0 until s.awayRed) rect(c, awayX + 14 + i * 16, top + 14, 12f, 20f, RED)
-            if (s.homeRed > 0) homeMark = 18f + 16 * s.homeRed
-            if (s.awayRed > 0) awayMark = 18f + 16 * s.awayRed
-        }
-        // Volley : service (petit triangle côté score)
-        if (s.sport == Sport.VOLLEY && s.serving != null) {
-            val home = s.serving == Team.HOME
-            val cx = if (home) middleX - 20 else awayX + 20
-            val dir = if (home) 1 else -1
-            polygon(c, if (home) homeOn else awayOn, cx - 7 * dir, top + 22, cx + 7 * dir, top + 32, cx - 7 * dir, top + 42)
-            if (home) homeMark = 34f else awayMark = 34f
-        }
-
-        drawText(c, s.homeName.uppercase(), homeX + NAME_W / 2 - homeMark / 2, top + 48, 46f, bebas, homeOn,
-            maxWidth = NAME_W - 28 - homeMark)
-        drawText(c, s.awayName.uppercase(), awayX + NAME_W / 2 + awayMark / 2, top + 48, 46f, bebas, awayOn,
-            maxWidth = NAME_W - 28 - awayMark)
-
-        // Chrono, à droite
-        if (s.sport.hasClock) {
-            rect(c, end, top, CLOCK_W, ROW, DARK)
-            val running = s.clockRunning
-            drawText(c, s.clockText(now), end + CLOCK_W / 2, top + 48, 46f, bebas,
-                if (!running && s.clockStarted && !s.finished) GREY else Color.WHITE)
-            s.addedText(now)?.let { added ->
-                rect(c, end + CLOCK_W, top, ADDED_W, ROW, accent)
-                drawText(c, added, end + CLOCK_W + ADDED_W / 2, top + 48, 42f, bebas, accentOn, maxWidth = ADDED_W - 12)
+            // Partie centrale : score (ou sets + points au volley)
+            val middleX = x
+            val middleW: Float
+            if (s.sport == Sport.VOLLEY) {
+                middleW = SETS_W * 2 + PTS_W
+                rect(c, x, top, SETS_W, ROW, DARK)
+                drawText(c, s.homeSets.toString(), x + SETS_W / 2, top + 50, 50f, bebas, highlight)
+                rect(c, x + SETS_W, top, PTS_W, ROW, accent)
+                drawText(c, "${s.homeScore} - ${s.awayScore}", x + SETS_W + PTS_W / 2, top + 52, 60f, bebas, accentOn,
+                    maxWidth = PTS_W - 16)
+                rect(c, x + SETS_W + PTS_W, top, SETS_W, ROW, DARK)
+                drawText(c, s.awaySets.toString(), x + SETS_W * 1.5f + PTS_W, top + 50, 50f, bebas, highlight)
+            } else {
+                middleW = SCORE_W
+                rect(c, x, top, SCORE_W, ROW, accent)
+                drawText(c, "${s.homeScore} - ${s.awayScore}", x + SCORE_W / 2, top + 52, 60f, bebas, accentOn,
+                    maxWidth = SCORE_W - 16)
             }
-        }
+            x += middleW
+            val awayX = x
+            rect(c, awayX, top, NAME_W, ROW, s.awayColor)
+            x += NAME_W
+            val end = x
 
-        var y = bottom
-        val w = end - start
+            // Liseré sous les noms (couleur secondaire du club)
+            rect(c, homeX, bottom - 4, NAME_W, 4f, accent)
+            rect(c, awayX, bottom - 4, NAME_W, 4f, accent)
 
-        // Basket / hand : ligne d'informations sous chaque équipe (fautes, temps morts, exclusions)
-        if (s.sport == Sport.BASKET || s.sport == Sport.HAND) {
-            rect(c, start, y, w, INFO, INFO_BG)
-            teamInfo(c, s, Team.HOME, homeX, y, now, highlight)
-            teamInfo(c, s, Team.AWAY, awayX, y, now, highlight)
-            y += INFO
+            // Foot : cartons rouges, côté score
+            var homeMark = 0f
+            var awayMark = 0f
+            if (s.sport == Sport.FOOT) {
+                for (i in 0 until s.homeRed) rect(c, middleX - 14 - i * 16 - 12, top + 14, 12f, 20f, RED)
+                for (i in 0 until s.awayRed) rect(c, awayX + 14 + i * 16, top + 14, 12f, 20f, RED)
+                if (s.homeRed > 0) homeMark = 18f + 16 * s.homeRed
+                if (s.awayRed > 0) awayMark = 18f + 16 * s.awayRed
+            }
+            // Volley : service (petit triangle côté score)
+            if (s.sport == Sport.VOLLEY && s.serving != null) {
+                val home = s.serving == Team.HOME
+                val cx = if (home) middleX - 20 else awayX + 20
+                val dir = if (home) 1 else -1
+                polygon(c, if (home) homeOn else awayOn, cx - 7 * dir, top + 22, cx + 7 * dir, top + 32, cx - 7 * dir, top + 42)
+                if (home) homeMark = 34f else awayMark = 34f
+            }
+
+            drawText(c, s.homeName.uppercase(), homeX + NAME_W / 2 - homeMark / 2, top + 48, 46f, bebas, homeOn,
+                maxWidth = NAME_W - 28 - homeMark)
+            drawText(c, s.awayName.uppercase(), awayX + NAME_W / 2 + awayMark / 2, top + 48, 46f, bebas, awayOn,
+                maxWidth = NAME_W - 28 - awayMark)
+
+            // Chrono, à droite
+            if (s.sport.hasClock) {
+                rect(c, end, top, CLOCK_W, ROW, DARK)
+                val running = s.clockRunning
+                drawText(c, s.clockText(now), end + CLOCK_W / 2, top + 48, 46f, bebas,
+                    if (!running && s.clockStarted && !s.finished) GREY else Color.WHITE)
+                s.addedText(now)?.let { added ->
+                    rect(c, end + CLOCK_W, top, ADDED_W, ROW, accent)
+                    drawText(c, added, end + CLOCK_W + ADDED_W / 2, top + 48, 42f, bebas, accentOn, maxWidth = ADDED_W - 12)
+                }
+            }
+
+            y = bottom
+            w = end - start
+
+            // Basket / hand : ligne d'informations sous chaque équipe (fautes, temps morts, exclusions)
+            if (s.sport == Sport.BASKET || s.sport == Sport.HAND) {
+                rect(c, start, y, w, INFO, INFO_BG)
+                teamInfo(c, s, Team.HOME, homeX, y, now, highlight)
+                teamInfo(c, s, Team.AWAY, awayX, y, now, highlight)
+                y += INFO
+            }
         }
 
         // Bandeau : période · compétition
@@ -263,6 +271,59 @@ class OverlayRenderer(
                 cx += bw + 6
             }
         }
+    }
+
+    /**
+     * Tableau de score du volley sur deux lignes (une par équipe) :
+     * nom (+ ballon au service) | sets gagnés | score de chaque set terminé | points du set en cours.
+     * Renvoie la largeur totale.
+     */
+    private fun drawVolleyRows(c: Canvas, s: ScoreState, accent: Int, accentOn: Int, highlight: Int): Float {
+        val sets = s.setScores
+        val w = V_NAME_W + V_SETS_W + sets.size * V_CELL + V_PTS_W
+        for ((i, team) in listOf(Team.HOME, Team.AWAY).withIndex()) {
+            val y = Y0 + i * V_ROW
+            val color = if (team == Team.HOME) s.homeColor else s.awayColor
+            val on = Colors.onColor(color)
+            var x = X0
+            // Nom de l'équipe, ballon si elle est au service
+            rect(c, x, y, V_NAME_W, V_ROW, color)
+            val serving = s.serving == team
+            drawText(c, s.name(team).uppercase(), x + 18, y + 44, 42f, bebas, on,
+                maxWidth = V_NAME_W - 36 - (if (serving) 36 else 0), align = Paint.Align.LEFT)
+            if (serving) volleyBall(c, x + V_NAME_W - 26, y + V_ROW / 2, 13f, on, color)
+            x += V_NAME_W
+            // Sets gagnés
+            rect(c, x, y, V_SETS_W, V_ROW, DARK)
+            drawText(c, (if (team == Team.HOME) s.homeSets else s.awaySets).toString(), x + V_SETS_W / 2, y + 44, 44f,
+                bebas, highlight)
+            x += V_SETS_W
+            // Scores des sets terminés : le vainqueur du set en blanc, l'autre en gris
+            for ((h, a) in sets) {
+                val mine = if (team == Team.HOME) h else a
+                val theirs = if (team == Team.HOME) a else h
+                rect(c, x, y, V_CELL, V_ROW, SET_BG)
+                drawText(c, mine.toString(), x + V_CELL / 2, y + 44, 44f, bebas, if (mine > theirs) Color.WHITE else GREY)
+                x += V_CELL
+            }
+            // Points du set en cours, mis en valeur
+            rect(c, x, y, V_PTS_W, V_ROW, accent)
+            drawText(c, (if (team == Team.HOME) s.homeScore else s.awayScore).toString(), x + V_PTS_W / 2, y + 46, 50f,
+                bebas, accentOn)
+        }
+        // Fine séparation entre les deux lignes
+        rect(c, X0, Y0 + V_ROW - 1, w, 2f, Color.argb(160, 0, 0, 0))
+        return w
+    }
+
+    /** Petit ballon de volley (indicateur de service). */
+    private fun volleyBall(c: Canvas, cx: Float, cy: Float, r: Float, color: Int, lines: Int) {
+        fill.color = color
+        c.drawCircle(cx, cy, r, fill)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = r * 0.16f; this.color = lines }
+        c.drawArc(RectF(cx - r * 1.6f, cy - r * 2.2f, cx + r * 0.9f, cy + r * 0.2f), 20f, 110f, false, p)
+        c.drawArc(RectF(cx - r * 0.2f, cy - r * 0.9f, cx + r * 2.2f, cy + r * 1.6f), 140f, 110f, false, p)
+        c.drawArc(RectF(cx - r * 1.9f, cy - r * 0.3f, cx + r * 0.5f, cy + r * 2.1f), 260f, 110f, false, p)
     }
 
     private fun eventBanner(
@@ -551,6 +612,14 @@ class OverlayRenderer(
         private const val ADDED_W = 110f
         private const val INFO = 30f
         private const val SUB = 34f
+
+        // Volley : deux lignes, une colonne par set
+        private const val V_ROW = 58f
+        private const val V_NAME_W = 330f
+        private const val V_SETS_W = 60f
+        private const val V_CELL = 70f
+        private const val V_PTS_W = 92f
+        private val SET_BG = Color.argb(235, 30, 31, 38)
 
         // Écrans de pause et de fin : positions fixes (écran généré comme vidéo importée)
         private const val LOGO_BOX = 220f
