@@ -333,71 +333,9 @@ class OverlayRenderer(
             return bitmap
         }
 
-        // Mi-temps avec partenaires : tout est un peu plus compact pour laisser la place au bandeau
-        val withPartners = scene == Scene.HALFTIME && partners.isNotEmpty()
-
-        // Logo
-        var y = if (withPartners) 60f else 110f
-        if (logo != null) {
-            val box = if (withPartners) 200f else 300f
-            drawLogo(c, 960 - box / 2, y, box, box)
-            y += box + 30
-        } else {
-            y += 230 // sans logo : bloc recentré verticalement
-        }
-
-        val title = when (scene) {
-            Scene.INTRO -> "LE MATCH VA BIENTÔT COMMENCER"
-            Scene.HALFTIME -> s.sport.breakLabel.uppercase()
-            Scene.OUTRO -> "FIN DU MATCH"
-            Scene.MATCH -> ""
-        }
-        drawText(c, title, 960f, y + 70, 92f, bebas, highlight, maxWidth = 1500f)
-        y += 110
-
-        // Plaques des équipes, score au milieu
-        val plateY = y + 20
-        val plateH = 120f
-        val plateW = 600f
-        val gap = if (scene == Scene.INTRO) 200f else 380f
-        val lx = 960 - gap / 2 - plateW
-        val rx = 960 + gap / 2
-        plate(c, lx, plateY, plateW, plateH, s.homeColor, accent, left = true)
-        plate(c, rx, plateY, plateW, plateH, s.awayColor, accent, left = false)
-        drawText(c, s.homeName.uppercase(), lx + plateW / 2, plateY + 88, 84f, bebas, Colors.onColor(s.homeColor),
-            maxWidth = plateW - 60)
-        drawText(c, s.awayName.uppercase(), rx + plateW / 2, plateY + 88, 84f, bebas, Colors.onColor(s.awayColor),
-            maxWidth = plateW - 60)
-        if (scene == Scene.INTRO) {
-            drawText(c, "VS", 960f, plateY + 92, 96f, bebas, Color.WHITE)
-        } else {
-            val main = if (s.sport == Sport.VOLLEY) "${s.homeSets} - ${s.awaySets}" else "${s.homeScore} - ${s.awayScore}"
-            drawText(c, main, 960f, plateY + 100, 150f, bebas, Color.WHITE, maxWidth = gap - 30)
-        }
-        y = plateY + plateH + 70
-
-        // Détails sous le score
-        val details = resultDetails(s)
-        if (scene != Scene.INTRO && details.isNotEmpty()) {
-            drawText(c, details, 960f, y, 40f, josefin, highlight, maxWidth = 1500f)
-            y += 60
-        }
-        if (scene != Scene.INTRO && s.sport == Sport.FOOT) {
-            for ((xCenter, lines) in listOf(lx + plateW / 2 to s.scorers(Team.HOME), rx + plateW / 2 to s.scorers(Team.AWAY))) {
-                var ly = y
-                for (line in lines.take(if (withPartners) 3 else 5)) {
-                    drawText(c, line, xCenter, ly, 32f, josefin, Color.WHITE, maxWidth = plateW)
-                    ly += 44
-                }
-            }
-        }
-
-        if (withPartners) partnerStrip(c, 830f, highlight)
-
-        // Compétition, en bas
-        if (s.competition.isNotBlank()) {
-            drawText(c, s.competition.uppercase(), 960f, 1030f, 32f, josefin, Color.WHITE, maxWidth = 1600f)
-        }
+        // Logo en haut (taille et place fixes), puis le bloc résultat commun à toutes les configurations
+        if (logo != null) drawLogo(c, 960 - LOGO_BOX / 2, 70f, LOGO_BOX, LOGO_BOX)
+        drawResultBlock(c, s, scene)
         return bitmap
     }
 
@@ -408,40 +346,77 @@ class OverlayRenderer(
     fun renderResultCard(s: ScoreState, scene: Scene): Bitmap {
         val bitmap = empty()
         if (scene == Scene.INTRO || scene == Scene.MATCH) return bitmap
-        val c = designCanvas(bitmap)
+        drawResultBlock(designCanvas(bitmap), s, scene)
+        return bitmap
+    }
+
+    /**
+     * Bloc résultat des écrans de pause et de fin, à des positions FIXES (repère 1920x1080), identiques
+     * sur l'écran généré et sur une vidéo importée : titre, équipes et score, détails, buteurs,
+     * partenaires (pause), compétition. Chaque élément a son propre fond, lisible sur n'importe quelle vidéo.
+     */
+    private fun drawResultBlock(c: Canvas, s: ScoreState, scene: Scene) {
         val accent = s.homeAccent
-        val plateW = 520f
-        val h = 100f
-        val scoreW = 260f
-        val y = 1080f - 80 - h
-        val total = plateW * 2 + scoreW
-        val x = 960 - total / 2
-        // Titre au-dessus
+        val withPartners = scene == Scene.HALFTIME && partners.isNotEmpty()
+
+        // Titre (« MI-TEMPS », « FIN DU MATCH »…) sur une étiquette à la couleur secondaire
         val title = if (scene == Scene.OUTRO) "FIN DU MATCH" else s.sport.breakLabel.uppercase()
         text.typeface = bebas
-        text.textSize = 40f
-        val tw = text.measureText(title) + 50
-        rect(c, 960 - tw / 2, y - 52, tw, 52f, accent)
-        drawText(c, title, 960f, y - 13, 40f, bebas, Colors.onColor(accent))
+        text.textSize = 72f
+        val tw = minOf(text.measureText(title) + 70, 1400f)
+        rect(c, 960 - tw / 2, R_TITLE_Y, tw, 76f, accent)
+        drawText(c, title, 960f, R_TITLE_Y + 62, 72f, bebas, Colors.onColor(accent), maxWidth = tw - 40)
 
-        rect(c, x, y, plateW, h, s.homeColor)
-        rect(c, x + plateW, y, scoreW, h, DARK)
-        rect(c, x + plateW + scoreW, y, plateW, h, s.awayColor)
-        drawText(c, s.homeName.uppercase(), x + plateW / 2, y + 72, 68f, bebas, Colors.onColor(s.homeColor), maxWidth = plateW - 40)
-        drawText(c, s.awayName.uppercase(), x + plateW * 1.5f + scoreW, y + 72, 68f, bebas, Colors.onColor(s.awayColor), maxWidth = plateW - 40)
+        // Équipes et score
+        val lx = 960 - R_GAP / 2 - R_PLATE_W
+        val rx = 960 + R_GAP / 2
+        plate(c, lx, R_PLATE_Y, R_PLATE_W, R_PLATE_H, s.homeColor, accent, left = true)
+        plate(c, rx, R_PLATE_Y, R_PLATE_W, R_PLATE_H, s.awayColor, accent, left = false)
+        rect(c, 960 - R_GAP / 2 + 10, R_PLATE_Y, R_GAP - 20, R_PLATE_H, DARK)
+        drawText(c, s.homeName.uppercase(), lx + R_PLATE_W / 2, R_PLATE_Y + 88, 84f, bebas, Colors.onColor(s.homeColor),
+            maxWidth = R_PLATE_W - 60)
+        drawText(c, s.awayName.uppercase(), rx + R_PLATE_W / 2, R_PLATE_Y + 88, 84f, bebas, Colors.onColor(s.awayColor),
+            maxWidth = R_PLATE_W - 60)
         val main = if (s.sport == Sport.VOLLEY) "${s.homeSets} - ${s.awaySets}" else "${s.homeScore} - ${s.awayScore}"
-        drawText(c, main, x + plateW + scoreW / 2, y + 80, 92f, bebas, Color.WHITE, maxWidth = scoreW - 30)
+        drawText(c, main, 960f, R_PLATE_Y + 100, 140f, bebas, Color.WHITE, maxWidth = R_GAP - 50)
+
+        // Détails : sets (volley), tirs au but (foot)
         val details = resultDetails(s)
         if (details.isNotEmpty()) {
-            rect(c, x, y + h, total, 44f, SUB_BG)
-            drawText(c, details, 960f, y + h + 31, 26f, josefin, Color.WHITE, maxWidth = total - 40)
+            val total = R_PLATE_W * 2 + R_GAP
+            rect(c, 960 - total / 2, R_DETAILS_Y, total, 48f, SUB_BG)
+            drawText(c, details, 960f, R_DETAILS_Y + 35, 32f, josefin, Color.WHITE, maxWidth = total - 40)
         }
-        // Partenaires en haut de la vidéo de mi-temps
-        if (scene == Scene.HALFTIME && partners.isNotEmpty()) {
-            rect(c, 0f, 0f, 1920f, 200f, SUB_BG)
-            partnerStrip(c, 50f, Color.WHITE)
+
+        // Buteurs (foot), sous chaque équipe
+        if (s.sport == Sport.FOOT) {
+            val max = if (withPartners) 3 else 5
+            for ((x, lines) in listOf(lx to s.scorers(Team.HOME), rx to s.scorers(Team.AWAY))) {
+                val shown = lines.take(max)
+                if (shown.isEmpty()) continue
+                rect(c, x, R_SCORERS_Y, R_PLATE_W, 16f + shown.size * 42f, SUB_BG)
+                var ly = R_SCORERS_Y + 40
+                for (line in shown) {
+                    drawText(c, line, x + R_PLATE_W / 2, ly, 30f, josefin, Color.WHITE, maxWidth = R_PLATE_W - 30)
+                    ly += 42
+                }
+            }
         }
-        return bitmap
+
+        // Partenaires (pause) : bandeau fixe en bas
+        if (withPartners) {
+            rect(c, 0f, R_PARTNERS_Y, 1920f, 190f, SUB_BG)
+            partnerStrip(c, R_PARTNERS_Y + 40, Color.WHITE)
+        }
+
+        // Compétition, tout en bas
+        if (s.competition.isNotBlank()) {
+            text.typeface = josefin
+            text.textSize = 30f
+            val cw = minOf(text.measureText(s.competition.uppercase()) + 60, 1700f)
+            rect(c, 960 - cw / 2, R_COMPET_Y, cw, 48f, SUB_BG)
+            drawText(c, s.competition.uppercase(), 960f, R_COMPET_Y + 35, 30f, josefin, Color.WHITE, maxWidth = cw - 40)
+        }
     }
 
     /** Ligne de détail : sets (volley), tirs au but (foot). */
@@ -576,6 +551,18 @@ class OverlayRenderer(
         private const val ADDED_W = 110f
         private const val INFO = 30f
         private const val SUB = 34f
+
+        // Écrans de pause et de fin : positions fixes (écran généré comme vidéo importée)
+        private const val LOGO_BOX = 220f
+        private const val R_TITLE_Y = 320f
+        private const val R_PLATE_Y = 420f
+        private const val R_PLATE_H = 120f
+        private const val R_PLATE_W = 600f
+        private const val R_GAP = 380f
+        private const val R_DETAILS_Y = 556f
+        private const val R_SCORERS_Y = 616f
+        private const val R_PARTNERS_Y = 790f
+        private const val R_COMPET_Y = 1000f
 
         const val GOAL_BANNER_MS = 10_000L
         const val PARTNER_ROTATION_MS = 8_000L
