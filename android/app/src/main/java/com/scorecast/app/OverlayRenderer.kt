@@ -357,7 +357,7 @@ class OverlayRenderer(
      */
     private fun drawResultBlock(c: Canvas, s: ScoreState, scene: Scene) {
         val accent = s.homeAccent
-        val withPartners = scene == Scene.HALFTIME && partners.isNotEmpty()
+        val withPartners = (scene == Scene.HALFTIME || scene == Scene.OUTRO) && partners.isNotEmpty()
 
         // Titre (« MI-TEMPS », « FIN DU MATCH »…) sur une étiquette à la couleur secondaire
         val title = if (scene == Scene.OUTRO) "FIN DU MATCH" else s.sport.breakLabel.uppercase()
@@ -403,7 +403,7 @@ class OverlayRenderer(
             }
         }
 
-        // Partenaires (pause) : bandeau fixe en bas
+        // Partenaires (pause et fin) : bandeau fixe en bas
         if (withPartners) {
             rect(c, 0f, R_PARTNERS_Y, 1920f, 190f, SUB_BG)
             partnerStrip(c, R_PARTNERS_Y + 40, Color.WHITE)

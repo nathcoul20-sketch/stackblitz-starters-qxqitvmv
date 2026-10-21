@@ -50,7 +50,7 @@
 
         <TextView
             style="@style/Hint"
-            android:text="Leurs logos s'affichent sur l'écran de mi-temps (« Merci à nos partenaires »). 8 logos maximum." />
+            android:text="Leurs logos s'affichent sur les écrans de mi-temps et de fin (« Merci à nos partenaires »). 8 logos maximum." />
 
         <GridLayout
             android:id="@+id/partners"
