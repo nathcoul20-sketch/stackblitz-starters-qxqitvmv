@@ -15,6 +15,8 @@ class RemoteServer(
     context: Context,
     port: Int,
     private val pin: String,
+    /** Nombre de logos partenaires (la télécommande n'affiche le bouton que s'il y en a). */
+    private val partnerCount: Int = 0,
 ) : NanoHTTPD(port) {
 
     private val rawPage: String =
@@ -59,6 +61,7 @@ class RemoteServer(
         val json = ScoreManager.state.toJson()
             .put("version", ScoreManager.version)
             .put("pageVersion", pageVersion)
+            .put("partnerCount", partnerCount)
         return json(Response.Status.OK, json)
     }
 

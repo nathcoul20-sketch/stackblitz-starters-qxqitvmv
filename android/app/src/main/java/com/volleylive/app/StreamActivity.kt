@@ -8,6 +8,7 @@ import android.view.SurfaceHolder
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -20,6 +21,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.pedro.common.ConnectChecker
 import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.library.rtmp.RtmpCamera2
+import com.pedro.library.util.BitrateAdapter
 import com.pedro.library.view.OpenGlView
 import java.util.Locale
 
@@ -29,7 +31,17 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         const val EXTRA_URL = "url"
         const val EXTRA_BACKUP_URL = "backupUrl"
         private const val MAX_RETRIES = 10
-        const val EXTRA_1080P = "1080p"
+    }
+
+    /**
+     * Qualité du live, choisie sur cet écran (bouton « Qualité »).
+     * « Auto » : 720p, le débit baisse quand le réseau sature puis remonte. Les autres sont fixes.
+     */
+    private enum class Quality(val label: String, val width: Int, val height: Int, val bitrate: Int, val detail: String) {
+        AUTO("Auto", 1280, 720, 2_500_000, "720p, s'adapte au réseau (conseillé)"),
+        HIGH("Haute", 1920, 1080, 4_500_000, "1080p · 4,5 Mb/s, bon Wi-Fi ou très bonne 4G"),
+        MEDIUM("Moyenne", 1280, 720, 2_500_000, "720p · 2,5 Mb/s"),
+        LOW("Basse", 1280, 720, 1_200_000, "720p · 1,2 Mb/s, réseau faible"),
     }
 
     private lateinit var openGlView: OpenGlView
@@ -41,23 +53,30 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private lateinit var scorePanel: View
 
     private val sceneButtons = mutableMapOf<Scene, Button>()
-    private lateinit var muteButton: Button
+    private lateinit var muteButton: ImageButton
+    private lateinit var qualityButton: Button
+    private lateinit var bitrateAdapter: BitrateAdapter
+    private lateinit var prefs: Prefs
+    private var quality = Quality.AUTO
+    private var weakCount = 0
+    private var partners: List<android.graphics.Bitmap> = emptyList()
     private var server: RemoteServer? = null
     private var facing = CameraHelper.Facing.BACK
 
     private var url = ""
     private var backupUrl = ""
     private var retryCount = 0
+    /** Résolution de l'aperçu et du live en cours (celle de la qualité choisie, appliquée hors live). */
     private var videoWidth = 1280
     private var videoHeight = 720
-    private var videoBitrate = 2_500_000
 
-    private val pin by lazy { Prefs(this).pin }
+    private val pin by lazy { prefs.pin }
 
     private val scoreListener: (ScoreState) -> Unit = { state ->
         scenes.onState(state)
         sceneButtons.forEach { (scene, button) -> button.alpha = if (scene == state.scene) 1f else 0.55f }
-        muteButton.text = if (state.audioMuted) "🔇 Son coupé" else "🔊 Son"
+        muteButton.setImageResource(if (state.audioMuted) R.drawable.ic_volume_off else R.drawable.ic_volume_on)
+        muteButton.contentDescription = if (state.audioMuted) "Rétablir le son du live" else "Couper le son du live"
         muteButton.backgroundTintList = ColorStateList.valueOf(
             if (state.audioMuted) Color.parseColor("#D00A0A") else Color.parseColor("#CC333333")
         )
@@ -74,13 +93,15 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
         url = intent.getStringExtra(EXTRA_URL) ?: ""
         backupUrl = intent.getStringExtra(EXTRA_BACKUP_URL) ?: ""
-        if (intent.getBooleanExtra(EXTRA_1080P, false)) {
-            videoWidth = 1920
-            videoHeight = 1080
-            videoBitrate = 4_500_000
-        }
+        prefs = Prefs(this)
+        quality = runCatching { Quality.valueOf(prefs.quality) }.getOrDefault(Quality.AUTO)
+        videoWidth = quality.width
+        videoHeight = quality.height
+        partners = Partners.logos(this)
         audioMixer = AudioMixer(this)
-        scenes = SceneController(this, OverlayRenderer(this, videoWidth, videoHeight), audioMixer)
+        scenes = SceneController(this, OverlayRenderer(this, videoWidth, videoHeight, partners), audioMixer)
+        bitrateAdapter = BitrateAdapter { bitrate -> runCatching { camera.setVideoBitrateOnFly(bitrate) } }
+        bitrateAdapter.setMaxBitrate(quality.bitrate)
 
         openGlView = findViewById(R.id.preview)
         status = findViewById(R.id.status)
@@ -100,6 +121,9 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         }
         muteButton = findViewById(R.id.mute)
         muteButton.setOnClickListener { ScoreManager.apply("toggle_mute") }
+        qualityButton = findViewById(R.id.quality)
+        qualityButton.setOnClickListener { chooseQuality() }
+        updateQualityUi()
         findViewById<Button>(R.id.switchCamera).setOnClickListener {
             try {
                 camera.switchCamera()
@@ -151,8 +175,29 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     private fun prepareEncoders(): Boolean {
         val rotation = CameraHelper.getCameraOrientation(this)
-        return camera.prepareVideo(videoWidth, videoHeight, 30, videoBitrate, rotation) &&
+        return camera.prepareVideo(videoWidth, videoHeight, 30, quality.bitrate, rotation) &&
             camera.prepareAudio(128_000, 44_100, true)
+    }
+
+    /**
+     * Applique la résolution de la qualité choisie (720p ou 1080p) : l'aperçu redémarre avec la
+     * nouvelle taille et l'incrustation est redessinée à cette taille. Uniquement hors live.
+     */
+    private fun applyResolution() {
+        if (camera.isStreaming) return
+        if (videoWidth == quality.width && videoHeight == quality.height) return
+        videoWidth = quality.width
+        videoHeight = quality.height
+        scenes.renderer = OverlayRenderer(this, videoWidth, videoHeight, partners)
+        if (!camera.isOnPreview) return // l'aperçu démarrera directement à la bonne taille
+        scenes.detach()
+        camera.stopPreview()
+        if (!prepareEncoders()) {
+            toast("Ce téléphone ne supporte pas cette résolution")
+            return
+        }
+        camera.startPreview(facing)
+        scenes.attach(camera.getGlInterface())
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {}
@@ -191,11 +236,15 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
                 .show()
             return
         }
+        applyResolution() // qualité changée pendant le live précédent : appliquée maintenant
         if (!prepareEncoders()) {
             toast("Erreur de préparation de l'encodeur")
             return
         }
         retryCount = 0
+        weakCount = 0
+        bitrateAdapter.reset()
+        bitrateAdapter.setMaxBitrate(quality.bitrate)
         camera.getStreamClient().setReTries(MAX_RETRIES)
         camera.startStream(url)
         status.text = "Connexion…"
@@ -204,7 +253,10 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     private fun updateLiveUi() {
         liveButton.text = if (camera.isStreaming) "■ STOP" else "● LIVE"
-        if (!camera.isStreaming) status.text = "Hors ligne"
+        if (!camera.isStreaming) {
+            status.text = "Hors ligne"
+            status.backgroundTintList = null
+        }
     }
 
     override fun onConnectionStarted(url: String) {}
@@ -244,9 +296,60 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     }
 
     override fun onNewBitrate(bitrate: Long) = runOnUiThread {
-        if (camera.isStreaming) {
-            status.text = String.format(Locale.FRANCE, "● EN DIRECT · %.1f Mb/s", bitrate / 1_000_000.0)
+        if (!camera.isStreaming) return@runOnUiThread
+        val congestion = runCatching { camera.getStreamClient().hasCongestion() }.getOrDefault(false)
+        // Qualité « Auto » : le débit baisse quand le réseau sature, puis remonte
+        if (quality == Quality.AUTO) bitrateAdapter.adaptBitrate(bitrate, congestion)
+        // Réseau faible : saturation, ou débit très en dessous de ce qui est demandé, plusieurs secondes de suite
+        val weak = congestion || bitrate < quality.bitrate * (if (quality == Quality.AUTO) 0.4 else 0.6)
+        weakCount = if (weak) weakCount + 1 else 0
+        val mbps = String.format(Locale.FRANCE, "%.1f Mb/s", bitrate / 1_000_000.0)
+        if (weakCount >= 3) {
+            status.text = "⚠ RÉSEAU FAIBLE · $mbps" + if (quality == Quality.AUTO || quality == Quality.LOW) "" else "\nPassez en qualité Auto ou Basse"
+            status.backgroundTintList = ColorStateList.valueOf(0xE6C62828.toInt())
+        } else {
+            status.text = "● EN DIRECT · $mbps"
+            status.backgroundTintList = null
         }
+    }
+
+    // ---- Qualité du live ----
+
+    private fun chooseQuality() {
+        val labels = Quality.entries.map { "${it.label} — ${it.detail}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Qualité du live")
+            .setSingleChoiceItems(labels, quality.ordinal) { dialog, which ->
+                dialog.dismiss()
+                setQuality(Quality.entries[which])
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
+    private fun setQuality(q: Quality) {
+        val resolutionChanges = q.width != videoWidth || q.height != videoHeight
+        quality = q
+        prefs.quality = q.name
+        weakCount = 0
+        bitrateAdapter.reset()
+        bitrateAdapter.setMaxBitrate(q.bitrate)
+        updateQualityUi()
+        if (camera.isStreaming) {
+            // Pendant le live, seul le débit change (sans coupure) ; la résolution suivra au prochain live
+            runCatching { camera.setVideoBitrateOnFly(q.bitrate) }
+            toast(
+                if (resolutionChanges) "Qualité ${q.label} : débit modifié. Image en ${q.height}p au prochain lancement du live."
+                else "Qualité : ${q.label}"
+            )
+        } else {
+            applyResolution()
+            toast("Qualité : ${q.label} (${q.height}p)")
+        }
+    }
+
+    private fun updateQualityUi() {
+        qualityButton.text = "Qualité : ${quality.label}"
     }
 
     override fun onDisconnect() = runOnUiThread { updateLiveUi() }
@@ -280,7 +383,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     private fun startRemoteServer() {
         server = try {
-            RemoteServer(this, RemoteServer.DEFAULT_PORT, pin).also { it.start() }
+            RemoteServer(this, RemoteServer.DEFAULT_PORT, pin, partners.size).also { it.start() }
         } catch (e: Exception) {
             toast("Serveur télécommande indisponible : ${e.message}")
             null

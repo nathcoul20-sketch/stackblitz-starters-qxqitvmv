@@ -31,9 +31,15 @@ class Prefs(context: Context) {
         get() = sp.getString("competition", "Championnat Régional Masculin") ?: ""
         set(v) = sp.edit().putString("competition", v).apply()
 
-    var quality1080: Boolean
-        get() = sp.getBoolean("quality1080", false)
-        set(v) = sp.edit().putBoolean("quality1080", v).apply()
+    /** Qualité du live choisie sur l'écran caméra (Auto, Haute, Moyenne, Basse). */
+    var quality: String
+        get() = sp.getString("quality", null) ?: if (sp.getBoolean("quality1080", false)) "HIGH" else "AUTO"
+        set(v) = sp.edit().putString("quality", v).apply()
+
+    /** Logos des partenaires aussi pendant le match (un à la fois, en bas à droite). */
+    var partnersInMatch: Boolean
+        get() = sp.getBoolean("partnersInMatch", false)
+        set(v) = sp.edit().putBoolean("partnersInMatch", v).apply()
 
     // ---- Twitch (titre du live automatique) ----
 

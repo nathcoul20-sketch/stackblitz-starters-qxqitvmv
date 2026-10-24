@@ -23,6 +23,8 @@ data class ScoreState(
     val scene: Scene = Scene.INTRO,
     /** Son du live coupé (bouton « Couper le son »). */
     val audioMuted: Boolean = false,
+    /** Logos des partenaires affichés pendant le match (un à la fois, en bas à droite). */
+    val partnersVisible: Boolean = false,
     /** Scores des sets terminés, dans l'ordre (domicile, extérieur). */
     val setScores: List<Pair<Int, Int>> = emptyList(),
 ) {
@@ -51,6 +53,7 @@ data class ScoreState(
         put("setWinner", setWinner?.name?.lowercase() ?: JSONObject.NULL)
         put("scene", scene.name.lowercase())
         put("audioMuted", audioMuted)
+        put("partnersVisible", partnersVisible)
         put("setScores", JSONArray(setScores.map { JSONArray(listOf(it.first, it.second)) }))
     }
 }

@@ -31,6 +31,7 @@
   .label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .mute { width: 100%; margin-bottom: 12px; font-weight: 700; background: var(--panel); border: 2px solid #333; }
   .mute.on { background: var(--home); border-color: var(--home); }
+  .mute.shown { background: #17432c; border-color: #2ecc71; }
   .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
   .scenes button { background: var(--panel); border: 2px solid #333; font-weight: 700; }
   .scenes button.active { background: #fff; color: #111; border-color: #fff; }
@@ -97,6 +98,8 @@
   <button data-a="scene_match" data-scene="match">Match</button>
   <button data-a="scene_outro" data-scene="outro">Fin</button>
 </div>
+
+<button id="partnersBtn" data-a="toggle_partners" class="mute" style="display:none">Partenaires pendant le match</button>
 
 <div class="teams">
   <div class="team home" id="home">
@@ -188,6 +191,11 @@
     });
     $('muteBtn').textContent = s.audioMuted ? '🔇 Son du live : COUPÉ (toucher pour remettre)' : '🔊 Son du live : activé (toucher pour couper)';
     $('muteBtn').classList.toggle('on', !!s.audioMuted);
+    $('partnersBtn').style.display = s.partnerCount > 0 ? '' : 'none';
+    $('partnersBtn').textContent = s.partnersVisible
+      ? 'Partenaires pendant le match : affichés (toucher pour masquer)'
+      : 'Partenaires pendant le match : masqués (toucher pour afficher)';
+    $('partnersBtn').classList.toggle('shown', !!s.partnersVisible);
     $('overlayBtn').textContent = s.overlayVisible ? "Masquer l'overlay" : "Afficher l'overlay";
     if (firstLoad || document.activeElement.tagName !== 'INPUT') {
       $('cfgHome').value = s.homeName;

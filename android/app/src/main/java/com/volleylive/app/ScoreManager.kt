@@ -62,6 +62,10 @@ object ScoreManager {
                 commit(s.copy(audioMuted = !s.audioMuted))
                 return true
             }
+            "toggle_partners" -> {
+                commit(s.copy(partnersVisible = !s.partnersVisible))
+                return true
+            }
             "scene_intro", "scene_match", "scene_outro" -> {
                 val scene = Scene.valueOf(action.removePrefix("scene_").uppercase())
                 if (scene != s.scene) commit(s.copy(scene = scene))
@@ -74,10 +78,12 @@ object ScoreManager {
                 overlayVisible = s.overlayVisible,
                 scene = s.scene,
                 audioMuted = s.audioMuted,
+                partnersVisible = s.partnersVisible,
             )
             "undo" -> {
                 // On garde la scène actuelle : annuler un point ne doit pas changer d'écran
-                val previous = history.removeLastOrNull()?.copy(scene = s.scene, audioMuted = s.audioMuted) ?: return false
+                val previous = history.removeLastOrNull()
+                    ?.copy(scene = s.scene, audioMuted = s.audioMuted, partnersVisible = s.partnersVisible) ?: return false
                 state = previous
                 version++
                 notifyListeners(previous)

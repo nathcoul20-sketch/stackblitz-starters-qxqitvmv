@@ -13,6 +13,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -52,7 +53,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var homeName: EditText
     private lateinit var awayName: EditText
     private lateinit var competition: EditText
-    private lateinit var quality1080: MaterialSwitch
+    private lateinit var partnersGrid: android.widget.GridLayout
+    private lateinit var partnersInMatch: MaterialSwitch
     private lateinit var twitch: TwitchApi
     private lateinit var twitchSection: View
     private lateinit var twitchAutoTitle: MaterialSwitch
@@ -62,6 +64,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var twitchClientId: EditText
     private lateinit var twitchConnect: Button
     @Volatile private var twitchLoginCancelled = false
+
+    private val partnerPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) addPartner(uri)
+    }
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -82,7 +88,8 @@ class MainActivity : AppCompatActivity() {
         homeName = findViewById(R.id.homeName)
         awayName = findViewById(R.id.awayName)
         competition = findViewById(R.id.competition)
-        quality1080 = findViewById(R.id.quality1080)
+        partnersGrid = findViewById(R.id.partners)
+        partnersInMatch = findViewById(R.id.partnersInMatch)
         twitch = TwitchApi(prefs)
         twitchSection = findViewById(R.id.twitchSection)
         twitchAutoTitle = findViewById(R.id.twitchAutoTitle)
@@ -111,7 +118,13 @@ class MainActivity : AppCompatActivity() {
         homeName.setText(prefs.homeName)
         awayName.setText(prefs.awayName)
         competition.setText(prefs.competition)
-        quality1080.isChecked = prefs.quality1080
+        partnersInMatch.isChecked = prefs.partnersInMatch
+        partnersInMatch.setOnCheckedChangeListener { _, checked -> prefs.partnersInMatch = checked }
+        findViewById<Button>(R.id.addPartner).setOnClickListener {
+            if (Partners.files(this).size >= Partners.MAX) toast("${Partners.MAX} logos maximum")
+            else partnerPicker.launch("image/*")
+        }
+        renderPartners()
         twitchAutoTitle.isChecked = prefs.twitchAutoTitle
         twitchAutoTitle.setOnCheckedChangeListener { _, checked -> prefs.twitchAutoTitle = checked }
         twitchClientId.setText(prefs.twitchClientId)
@@ -148,7 +161,6 @@ class MainActivity : AppCompatActivity() {
         prefs.homeName = homeName.text.toString().trim().ifEmpty { "DOMICILE" }
         prefs.awayName = awayName.text.toString().trim().ifEmpty { "VISITEUR" }
         prefs.competition = competition.text.toString().trim()
-        prefs.quality1080 = quality1080.isChecked
 
         val missing = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
             .filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
@@ -170,15 +182,70 @@ class MainActivity : AppCompatActivity() {
         }
 
         ScoreManager.init(
-            ScoreState(homeName = prefs.homeName, awayName = prefs.awayName, competition = prefs.competition)
+            ScoreState(
+                homeName = prefs.homeName,
+                awayName = prefs.awayName,
+                competition = prefs.competition,
+                partnersVisible = prefs.partnersInMatch,
+            )
         )
         startActivity(
             Intent(this, StreamActivity::class.java)
                 .putExtra(StreamActivity.EXTRA_URL, url)
                 .putExtra(StreamActivity.EXTRA_BACKUP_URL, backupUrl)
-                .putExtra(StreamActivity.EXTRA_1080P, prefs.quality1080)
         )
     }
+
+    // ---- Partenaires ----
+
+    private fun renderPartners() {
+        partnersGrid.removeAllViews()
+        val gap = dp(8f)
+        val cell = (resources.displayMetrics.widthPixels - dp(40f) - 3 * gap) / 3
+        for (file in Partners.files(this)) {
+            val tile = ImageView(this).apply {
+                layoutParams = android.widget.GridLayout.LayoutParams().apply {
+                    width = cell
+                    height = (cell * 0.6f).toInt()
+                    setMargins(0, 0, gap, gap)
+                }
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(android.graphics.Color.WHITE)
+                    cornerRadius = dp(10f).toFloat()
+                }
+                setPadding(gap, gap, gap, gap)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setImageBitmap(runCatching { android.graphics.BitmapFactory.decodeFile(file.path) }.getOrNull())
+                contentDescription = "Logo partenaire (toucher pour retirer)"
+                setOnClickListener { removePartner(file) }
+            }
+            partnersGrid.addView(tile)
+        }
+        partnersInMatch.visibility = if (Partners.files(this).isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun addPartner(uri: Uri) {
+        thread {
+            val ok = Partners.add(this, uri)
+            runOnUiThread {
+                if (!ok) toast("Image illisible")
+                renderPartners()
+            }
+        }
+    }
+
+    private fun removePartner(file: java.io.File) {
+        AlertDialog.Builder(this)
+            .setTitle("Retirer ce partenaire ?")
+            .setPositiveButton("Retirer") { _, _ ->
+                Partners.remove(file)
+                renderPartners()
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
+    private fun dp(value: Float): Int = (value * resources.displayMetrics.density).toInt()
 
     // ---- Twitch : titre du live ----
 

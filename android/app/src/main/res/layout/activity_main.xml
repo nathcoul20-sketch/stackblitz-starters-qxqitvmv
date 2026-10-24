@@ -109,13 +109,6 @@
                 android:text="Connecter mon compte Twitch" />
         </LinearLayout>
 
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/quality1080"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Qualité 1080p (sinon 720p, conseillé en 4G)" />
-
         <TextView
             style="@style/SectionTitle"
             android:text="Match" />
@@ -160,6 +153,38 @@
                 android:inputType="textCapSentences"
                 android:maxLength="60" />
         </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            style="@style/SectionTitle"
+            android:text="Partenaires" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Leurs logos s'affichent sur l'écran de fin (« Merci à nos partenaires »). 8 logos maximum. Touchez un logo pour le retirer."
+            android:textSize="13sp" />
+
+        <GridLayout
+            android:id="@+id/partners"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:columnCount="3" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/addPartner"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="+ Ajouter un logo" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/partnersInMatch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Aussi pendant le match : un logo à la fois, en bas à droite (change toutes les 8 s)" />
 
         <Button
             android:id="@+id/start"

@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Surface
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.SurfaceFilterRender
@@ -11,7 +12,8 @@ import com.pedro.library.view.GlInterface
 
 /**
  * Gère ce qui est affiché par-dessus la caméra, sous forme de 3 calques OpenGL (du bas vers le haut) :
- *  1. vidéo plein écran (intro en boucle / écran de fin), invisible pendant le match ;
+ *  1. vidéo plein écran (intro / écran de fin), invisible pendant le match. Chaque vidéo joue son
+ *     animation d'entrée une fois, puis boucle sur sa seconde moitié (voir [LOOP_FROM_MS]) ;
  *  2. overlay : tableau de score en match, résultat sur l'écran de fin ;
  *  3. transition ECVB (vidéo avec transparence), jouée à chaque changement de scène.
  *
@@ -21,11 +23,30 @@ import com.pedro.library.view.GlInterface
  */
 class SceneController(
     private val context: Context,
-    private val renderer: OverlayRenderer,
+    renderer: OverlayRenderer,
     private val audio: AudioMixer,
 ) {
 
+    /** Remplacé quand la résolution du live change (bouton Qualité). */
+    var renderer: OverlayRenderer = renderer
+        set(value) {
+            field = value
+            refreshOverlay()
+        }
+
     private val main = Handler(Looper.getMainLooper())
+
+    /** Pendant le match : redessine le tableau quand le logo partenaire affiché doit changer. */
+    private val ticker = Handler(Looper.getMainLooper())
+    private var shownPartner = -1
+    private val tick = object : Runnable {
+        override fun run() {
+            if (shownScene == Scene.MATCH &&
+                renderer.partnerIndex(state, SystemClock.elapsedRealtime()) != shownPartner
+            ) refreshOverlay()
+            ticker.postDelayed(this, 500L)
+        }
+    }
 
     private var videoFilter: SurfaceFilterRender? = null
     private var overlayFilter: ImageObjectFilterRender? = null
@@ -54,10 +75,13 @@ class SceneController(
         overlayFilter = overlay
         transitionFilter = transition
         showScene(state.scene)
+        ticker.removeCallbacksAndMessages(null)
+        ticker.post(tick)
     }
 
     fun detach() {
         main.removeCallbacksAndMessages(null)
+        ticker.removeCallbacksAndMessages(null)
         transitioning = false
         videoPlayer?.release()
         videoPlayer = null
@@ -138,8 +162,8 @@ class SceneController(
         shownScene = scene
         audio.musicOn = scene != Scene.MATCH
         when (scene) {
-            Scene.INTRO -> playVideo(R.raw.intro, loop = true)
-            Scene.OUTRO -> playVideo(R.raw.outro, loop = false) // s'arrête sur la dernière image
+            Scene.INTRO -> playVideo(R.raw.intro)
+            Scene.OUTRO -> playVideo(R.raw.outro)
             Scene.MATCH -> {
                 videoFilter?.alpha = 0f
                 videoPlayer?.release()
@@ -150,9 +174,11 @@ class SceneController(
     }
 
     private fun refreshOverlay() {
+        val now = SystemClock.elapsedRealtime()
+        shownPartner = renderer.partnerIndex(state, now)
         overlayFilter?.setImage(
             when (shownScene) {
-                Scene.MATCH -> renderer.renderScoreboard(state)
+                Scene.MATCH -> renderer.renderScoreboard(state, now)
                 Scene.OUTRO -> renderer.renderOutro(state)
                 else -> renderer.empty()
             }
@@ -162,13 +188,13 @@ class SceneController(
     /** La surface de la vidéo est prête (créée par le thread OpenGL) : on lance la vidéo de la scène. */
     private fun onVideoSurfaceReady() {
         when (shownScene) {
-            Scene.INTRO -> playVideo(R.raw.intro, loop = true)
-            Scene.OUTRO -> playVideo(R.raw.outro, loop = false)
+            Scene.INTRO -> playVideo(R.raw.intro)
+            Scene.OUTRO -> playVideo(R.raw.outro)
             else -> {}
         }
     }
 
-    private fun playVideo(resId: Int, loop: Boolean) {
+    private fun playVideo(resId: Int) {
         videoPlayer?.release()
         videoPlayer = null
         val filter = videoFilter ?: return
@@ -178,11 +204,18 @@ class SceneController(
                 setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }
             setSurface(surface)
-            isLooping = loop
             setVolume(0f, 0f)
             setOnPreparedListener {
                 it.start()
                 filter.alpha = 1f
+            }
+            // Fin de la vidéo : on repart du milieu (image clé), sans rejouer l'animation d'entrée.
+            // Les chevrons animés ont un cycle de 4,5 s : la reprise ne se voit pas.
+            setOnCompletionListener {
+                runCatching {
+                    it.seekTo(LOOP_FROM_MS, MediaPlayer.SEEK_PREVIOUS_SYNC)
+                    it.start()
+                }
             }
             prepareAsync()
         }
@@ -194,5 +227,7 @@ class SceneController(
         /** Changement de scène : les volets couvrent tout l'écran entre 0,3 s et 1,1 s. */
         private const val CUT_MS = 730L
         private const val TIMEOUT_MS = 3000L
+        /** Reprise des vidéos d'intro et de fin (image clé placée à 4,5 s à l'encodage). */
+        private const val LOOP_FROM_MS = 4_500L
     }
 }
