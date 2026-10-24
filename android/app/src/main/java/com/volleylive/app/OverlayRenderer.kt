@@ -84,8 +84,8 @@ class OverlayRenderer(
         rect(c, 958f, y, 4f, ROW_H, Color.WHITE)       // filet central
 
         // Noms, avec le ballon devant l'équipe au service
-        teamName(c, s.homeName, hx + 22, hx + NAME_W - 16, s.serving == Team.HOME, ballLeft = false)
-        teamName(c, s.awayName, nx + 16, ex - 22, s.serving == Team.AWAY, ballLeft = true)
+        teamName(c, s.homeName, hx, hx + NAME_W, s.serving == Team.HOME, ballLeft = false)
+        teamName(c, s.awayName, nx, ex, s.serving == Team.AWAY, ballLeft = true)
 
         // Sets gagnés (petit libellé « SETS » au-dessus)
         for ((x, v) in listOf(hx + NAME_W + SETS_W / 2 to s.homeSets, ax + PTS_W + SETS_W / 2 to s.awaySets)) {
@@ -97,24 +97,25 @@ class OverlayRenderer(
         drawText(c, s.homeScore.toString(), hx + NAME_W + SETS_W + PTS_W / 2, y + 72, 84f, bebas, maxWidth = PTS_W - 16)
         drawText(c, s.awayScore.toString(), ax + PTS_W / 2, y + 72, 84f, bebas, maxWidth = PTS_W - 16)
 
-        // Onglet du haut : set en cours · compétition
+        // Barre du haut : set en cours · compétition, sur toute la longueur du tableau
         val label = if (s.setNumber >= 5) "TIE-BREAK" else "SET ${s.setNumber}"
         val comp = s.competition.trim().uppercase()
         val rest = if (comp.isEmpty()) "" else "   ·   $comp"
+        val maxText = ex - hx - 60
         text.typeface = josefin; text.textSize = 19f
         val w1 = text.measureText(label)
         text.typeface = josefinLight
         var restSize = 19f
         var w2 = text.measureText(rest)
-        if (w1 + w2 > TOP_TAB_MAX) {
-            restSize = 19f * (TOP_TAB_MAX - w1) / w2
+        if (w1 + w2 > maxText) {
+            restSize = 19f * (maxText - w1) / w2
             text.textSize = restSize
             w2 = text.measureText(rest)
         }
-        rect(c, hx, 0f, ex - hx, y, TAB)               // même largeur que la ligne principale
+        rect(c, hx, 0f, ex - hx, y, TAB)
         val tx = 960 - (w1 + w2) / 2
         drawText(c, label, tx, 24f, 19f, josefin, align = Paint.Align.LEFT)
-        if (rest.isNotEmpty()) drawText(c, rest, tx + w1, 24f, restSize, josefinLight, color = TAB_TEXT, align = Paint.Align.LEFT)
+        if (rest.isNotEmpty()) drawText(c, rest, tx + w1, 24f - (19f - restSize) * 0.35f, restSize, josefinLight, color = TAB_TEXT, align = Paint.Align.LEFT)
 
         // Onglet du bas : sets terminés (gagnant en blanc, perdant en gris)
         if (s.setScores.isNotEmpty()) {
@@ -140,18 +141,19 @@ class OverlayRenderer(
         return bitmap
     }
 
-    /** Nom centré dans sa plaque, réduit s'il est trop long ; ballon de volley devant si l'équipe sert. */
+    /**
+     * Nom centré dans sa case [x0, x1], réduit s'il est trop long (toujours centré, en largeur comme
+     * en hauteur). La place du ballon de service est réservée des deux côtés : le nom garde la même
+     * taille que l'équipe serve ou non.
+     */
     private fun teamName(c: Canvas, name: String, x0: Float, x1: Float, serving: Boolean, ballLeft: Boolean) {
-        var a = x0
-        var b = x1
+        val side = NAME_PAD + BALL_SIZE + 12
         if (serving) {
-            val size = BALL_SIZE
-            val bx = if (ballLeft) x0 else x1 - size
-            val by = ROW_Y + (ROW_H - size) / 2
-            c.drawBitmap(serveBall, null, RectF(bx, by, bx + size, by + size), bitmapPaint)
-            if (ballLeft) a += size + 14 else b -= size + 14
+            val bx = if (ballLeft) x0 + NAME_PAD else x1 - NAME_PAD - BALL_SIZE
+            val by = ROW_Y + (ROW_H - BALL_SIZE) / 2
+            c.drawBitmap(serveBall, null, RectF(bx, by, bx + BALL_SIZE, by + BALL_SIZE), bitmapPaint)
         }
-        drawText(c, name.uppercase(), (a + b) / 2, ROW_Y + 63, 58f, bebas, maxWidth = b - a)
+        drawText(c, name.uppercase(), (x0 + x1) / 2, ROW_Y + 63, 58f, bebas, maxWidth = x1 - x0 - 2 * side)
     }
 
     private fun rect(c: Canvas, x: Float, y: Float, w: Float, h: Float, color: Int) {
@@ -269,22 +271,26 @@ class OverlayRenderer(
         text.textAlign = align
         // Réduit la taille si le texte est trop long pour sa case
         val measured = text.measureText(value)
-        if (measured > maxWidth) text.textSize = size * maxWidth / measured
-        canvas.drawText(value, x, baseline, text)
+        var y = baseline
+        if (measured > maxWidth) {
+            text.textSize = size * maxWidth / measured
+            // Plus petit : on le remonte d'autant pour qu'il reste centré en hauteur dans sa case
+            y -= (size - text.textSize) * 0.35f
+        }
+        canvas.drawText(value, x, y, text)
     }
 
     companion object {
         // Tableau de score du match (repère 1920x1080)
         private const val ROW_Y = 34f
         private const val ROW_H = 84f
-        private const val NAME_W = 360f
+        private const val NAME_W = 400f
+        private const val NAME_PAD = 16f
         private const val SETS_W = 66f
         private const val PTS_W = 136f
         private const val CUT = 26f
         private const val CELL_W = 96f
         private const val BALL_SIZE = 38f
-        /** Largeur maximale du texte de la barre du haut (largeur du tableau moins les marges). */
-        private const val TOP_TAB_MAX = 2 * (NAME_W + SETS_W + PTS_W) - 64f
         private val HOME_NAME = Color.rgb(208, 10, 10)
         private val HOME_PTS = Color.rgb(163, 0, 0)
         private val HOME_SETS = Color.rgb(94, 0, 0)
