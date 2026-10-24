@@ -58,7 +58,7 @@ class OverlayRenderer(
 
     /**
      * Tableau de score du match, centré en haut (repère 1920x1080) :
-     *  - onglet du haut : set en cours (ou « TIE-BREAK ») et compétition ;
+     *  - barre du haut, de la même largeur que la ligne principale : set en cours (ou « TIE-BREAK ») et compétition ;
      *  - ligne principale : nom | sets gagnés | points, de chaque côté d'un filet blanc central,
      *    avec un petit ballon devant le nom de l'équipe au service ;
      *  - onglet du bas : le score de chaque set terminé, il s'élargit à chaque nouveau set.
@@ -111,8 +111,7 @@ class OverlayRenderer(
             text.textSize = restSize
             w2 = text.measureText(rest)
         }
-        val tw = w1 + w2 + 64
-        polygon(c, TAB, 960 - tw / 2, 0f, 960 + tw / 2, 0f, 960 + tw / 2 - 18, y, 960 - tw / 2 + 18, y)
+        rect(c, hx, 0f, ex - hx, y, TAB)               // même largeur que la ligne principale
         val tx = 960 - (w1 + w2) / 2
         drawText(c, label, tx, 24f, 19f, josefin, align = Paint.Align.LEFT)
         if (rest.isNotEmpty()) drawText(c, rest, tx + w1, 24f, restSize, josefinLight, color = TAB_TEXT, align = Paint.Align.LEFT)
@@ -284,7 +283,8 @@ class OverlayRenderer(
         private const val CUT = 26f
         private const val CELL_W = 96f
         private const val BALL_SIZE = 38f
-        private const val TOP_TAB_MAX = 700f
+        /** Largeur maximale du texte de la barre du haut (largeur du tableau moins les marges). */
+        private const val TOP_TAB_MAX = 2 * (NAME_W + SETS_W + PTS_W) - 64f
         private val HOME_NAME = Color.rgb(208, 10, 10)
         private val HOME_PTS = Color.rgb(163, 0, 0)
         private val HOME_SETS = Color.rgb(94, 0, 0)
