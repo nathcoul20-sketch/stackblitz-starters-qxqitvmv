@@ -304,7 +304,7 @@ class OverlayRenderer(
 
         /** Couleurs des plaques sur l'écran de fin (celles du visuel). */
         private val HOME_COLOR = Color.rgb(229, 21, 17)
-        private val AWAY_COLOR = Color.rgb(20, 80, 255)
+        private val AWAY_COLOR = AWAY_NAME              // même gris que la case des visiteurs en match
         private val PARTNER_LABEL = Color.rgb(213, 213, 216)
         const val PARTNER_ROTATION_MS = 8_000L
     }
