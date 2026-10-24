@@ -12,10 +12,11 @@ import kotlin.concurrent.thread
 /**
  * Mixe le son envoyé dans le live. Branché sur le micro (« effet audio » de RootEncoder),
  * il reçoit chaque bloc de son du micro et le remplace par :
- *   micro × gainMicro + musique × gainMusique + bruitage de transition.
+ *   micro × gainMicro + musique × gainMusique.
  *
  * Sur les écrans d'intro et de fin ([musicOn] = true) : musique, micro coupé.
- * En match : micro seul. Le passage de l'un à l'autre se fait en fondu.
+ * En match : micro seul. Pendant une transition, le son en cours s'éteint doucement jusqu'au
+ * changement d'écran ([fadeOutFor]), puis le son du nouvel écran remonte progressivement ([fadeInFor]).
  *
  * Format attendu partout : PCM 16 bits, 44 100 Hz, stéréo.
  */
@@ -33,13 +34,10 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
     private val music = ShortRing(SAMPLE_RATE * CHANNELS * 2) // ~2 s d'avance
     private var musicBlock = ShortArray(8192)
 
-    private val sfx: ShortArray = context.resources.openRawResource(R.raw.transition_sfx).use { input ->
-        val bytes = input.readBytes()
-        ShortArray(bytes.size / 2).also {
-            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(it)
-        }
-    }
-    @Volatile private var sfxPos = Int.MAX_VALUE
+    /** Pendant une transition : tout le son descend à zéro (avant le changement d'écran). */
+    @Volatile private var dip = false
+    @Volatile private var fadeDownStep = FADE_STEP
+    @Volatile private var fadeUpStep = FADE_STEP
 
     @Volatile private var running = true
 
@@ -48,10 +46,28 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
         thread(name = "music-decoder", isDaemon = true) { decodeMusicLoop(appContext) }
     }
 
-    /** Joue le bruitage de transition (dans le live). */
-    fun playTransitionSound() {
-        sfxPos = 0
+    /** Début de transition : le son actuel (musique ou micro) s'éteint en [ms] millisecondes. */
+    fun fadeOutFor(ms: Long) {
+        fadeDownStep = stepFor(ms)
+        dip = true
     }
+
+    /** Changement d'écran pendant la transition : le son de la nouvelle scène remonte en [ms] ms. */
+    fun fadeInFor(ms: Long, music: Boolean) {
+        fadeUpStep = stepFor(ms)
+        musicOn = music
+        dip = false
+    }
+
+    /** Changement d'écran sans transition : fondu enchaîné classique (~0,8 s). */
+    fun crossfade(music: Boolean) {
+        fadeDownStep = FADE_STEP
+        fadeUpStep = FADE_STEP
+        dip = false
+        musicOn = music
+    }
+
+    private fun stepFor(ms: Long) = 1f / (SAMPLE_RATE * CHANNELS * (ms.coerceAtLeast(100L) / 1000f))
 
     fun release() {
         running = false
@@ -61,8 +77,8 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
     override fun process(pcmBuffer: ByteArray): ByteArray {
         val samples = ByteBuffer.wrap(pcmBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
         val count = samples.remaining()
-        val musicTarget = if (musicOn) 1f else 0f
-        val micTarget = 1f - musicTarget
+        val musicTarget = if (!dip && musicOn) 1f else 0f
+        val micTarget = if (dip) 0f else 1f - musicTarget
         val masterTarget = if (muted) 0f else 1f
 
         // La musique n'avance que lorsqu'elle est audible : elle reprend là où elle s'était arrêtée
@@ -70,29 +86,24 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
         if (musicBlock.size < count) musicBlock = ShortArray(count)
         val got = if (needMusic) music.read(musicBlock, count) else 0
 
-        val startFx = sfxPos
-        var fx = startFx
         for (i in 0 until count) {
             musicGain = approach(musicGain, musicTarget)
             micGain = approach(micGain, micTarget)
             val mic = samples.get(i) * micGain
             val m = if (i < got) musicBlock[i] * musicGain * MUSIC_VOLUME else 0f
-            val s = if (fx < sfx.size) sfx[fx++] * SFX_VOLUME else 0f
             masterGain = when {
                 masterGain < masterTarget -> minOf(masterTarget, masterGain + MUTE_STEP)
                 masterGain > masterTarget -> maxOf(masterTarget, masterGain - MUTE_STEP)
                 else -> masterGain
             }
-            samples.put(i, ((mic + m + s) * masterGain).toInt().coerceIn(-32768, 32767).toShort())
+            samples.put(i, ((mic + m) * masterGain).toInt().coerceIn(-32768, 32767).toShort())
         }
-        // (si playTransitionSound() a été appelé pendant ce bloc, on garde sa remise à zéro)
-        if (sfxPos == startFx) sfxPos = fx
         return pcmBuffer
     }
 
     private fun approach(value: Float, target: Float): Float = when {
-        value < target -> minOf(target, value + FADE_STEP)
-        value > target -> maxOf(target, value - FADE_STEP)
+        value < target -> minOf(target, value + fadeUpStep)
+        value > target -> maxOf(target, value - fadeDownStep)
         else -> value
     }
 
@@ -165,7 +176,6 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
         private const val MUSIC_VOLUME = 0.8f
         /** Coupure / remise du son en ~0,1 s (évite un « clic »). */
         private const val MUTE_STEP = 1f / (SAMPLE_RATE * CHANNELS * 0.1f)
-        private const val SFX_VOLUME = 1f
     }
 }
 

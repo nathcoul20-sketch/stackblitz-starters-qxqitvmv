@@ -62,6 +62,7 @@ class RemoteServer(
             .put("version", ScoreManager.version)
             .put("pageVersion", pageVersion)
             .put("partnerCount", partnerCount)
+            .put("device", DeviceStatus.toJson())
         return json(Response.Status.OK, json)
     }
 

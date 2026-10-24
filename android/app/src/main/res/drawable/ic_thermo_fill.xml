@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Liquide + réservoir du thermomètre (teinté selon la température) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="448" android:viewportHeight="448">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M186,158H262V262A84,84 0,1 1,186 262Z" />
+</vector>

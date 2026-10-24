@@ -69,10 +69,14 @@ class MainActivity : AppCompatActivity() {
         if (uri != null) addPartner(uri)
     }
 
+    /** Après l'autorisation caméra / micro : reprendre le match sauvegardé ou en commencer un nouveau. */
+    private var resumeAfterPermission = false
+
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-            if (result.values.all { it }) openCamera()
-            else Toast.makeText(this, "La caméra et le micro sont nécessaires pour filmer", Toast.LENGTH_LONG).show()
+            if (result.values.all { it }) {
+                if (resumeAfterPermission) resumeMatch() else openCamera()
+            } else Toast.makeText(this, "La caméra et le micro sont nécessaires pour filmer", Toast.LENGTH_LONG).show()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -139,6 +143,50 @@ class MainActivity : AppCompatActivity() {
         updateTwitchUi()
 
         findViewById<Button>(R.id.start).setOnClickListener { onStartClicked() }
+        findViewById<Button>(R.id.resume).setOnClickListener {
+            resumeAfterPermission = true
+            withPermissions { resumeMatch() }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateResumeButton()
+    }
+
+    // ---- Match en cours ----
+
+    private fun updateResumeButton() {
+        val button = findViewById<Button>(R.id.resume)
+        val saved = MatchStore.load(this)
+        if (saved == null) {
+            button.visibility = View.GONE
+            return
+        }
+        val st = saved.state
+        button.text = "▶ Reprendre le match en cours\n${st.homeName} ${st.homeSets}-${st.awaySets} ${st.awayName} · set ${st.setNumber} (${st.homeScore}-${st.awayScore})"
+        button.visibility = View.VISIBLE
+    }
+
+    /** Rouvre la caméra sur le match sauvegardé, avec le même live (plateforme, clé). */
+    private fun resumeMatch() {
+        val saved = MatchStore.load(this) ?: run {
+            toast("Aucun match en cours")
+            updateResumeButton()
+            return
+        }
+        ScoreManager.init(saved.state)
+        startActivity(
+            Intent(this, StreamActivity::class.java)
+                .putExtra(StreamActivity.EXTRA_URL, saved.session.url)
+                .putExtra(StreamActivity.EXTRA_BACKUP_URL, saved.session.backupUrl)
+        )
+    }
+
+    private fun withPermissions(action: () -> Unit) {
+        val missing = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+            .filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isEmpty()) action() else permissionLauncher.launch(missing.toTypedArray())
     }
 
     private fun onStartClicked() {
@@ -162,9 +210,22 @@ class MainActivity : AppCompatActivity() {
         prefs.awayName = awayName.text.toString().trim().ifEmpty { "VISITEUR" }
         prefs.competition = competition.text.toString().trim()
 
-        val missing = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-            .filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
-        if (missing.isEmpty()) openCamera() else permissionLauncher.launch(missing.toTypedArray())
+        val start = {
+            resumeAfterPermission = false
+            withPermissions { openCamera() }
+        }
+        val saved = MatchStore.load(this)
+        if (saved == null) {
+            start()
+        } else {
+            val st = saved.state
+            AlertDialog.Builder(this)
+                .setTitle("Commencer un nouveau match ?")
+                .setMessage("Le match en cours (${st.homeName} ${st.homeSets}-${st.awaySets} ${st.awayName}) sera remplacé et ne pourra plus être repris.")
+                .setPositiveButton("Nouveau match") { _, _ -> start() }
+                .setNegativeButton("Annuler", null)
+                .show()
+        }
     }
 
     private fun openCamera() {

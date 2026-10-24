@@ -12,7 +12,8 @@ import android.graphics.Typeface
 
 /**
  * Dessine ce qui est incrusté par-dessus la vidéo, dans un bitmap transparent de la taille du flux :
- * - en match : le tableau de score (fond = scoreboard.png fourni, textes dessinés par-dessus) ;
+ * - en match : le tableau de score ECVB, dessiné entièrement (net à toutes les résolutions) :
+ *   noms, sets gagnés, points, set en cours et compétition, puis le détail des sets terminés ;
  * - sur l'écran de fin : titre, équipes, sets gagnés, détail des sets, partenaires et compétition,
  *   aux emplacements prévus par le visuel de la vidéo de fin ;
  * - les logos des partenaires (écran de fin, et un à la fois pendant le match si l'option est activée).
@@ -28,10 +29,6 @@ class OverlayRenderer(
     private val partners: List<Bitmap> = emptyList(),
 ) {
 
-    private val scoreboard: Bitmap = BitmapFactory.decodeResource(
-        context.resources, R.drawable.scoreboard, BitmapFactory.Options().apply { inScaled = false }
-    )
-
     private val bebas = Typeface.createFromAsset(context.assets, "fonts/BebasNeue-Regular.ttf")
     private val josefin = Typeface.Builder(context.assets, "fonts/JosefinSans.ttf")
         .setFontVariationSettings("'wght' 600")
@@ -43,7 +40,10 @@ class OverlayRenderer(
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+    /** Ballon blanc (fond transparent) affiché devant le nom de l'équipe au service. */
+    private val serveBall: Bitmap = BitmapFactory.decodeResource(
+        context.resources, R.drawable.serve_ball, BitmapFactory.Options().apply { inScaled = false }
+    )
     private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textAlign = Paint.Align.CENTER
@@ -56,42 +56,108 @@ class OverlayRenderer(
     fun partnerIndex(s: ScoreState, now: Long): Int =
         if (s.partnersVisible && partners.isNotEmpty()) ((now / PARTNER_ROTATION_MS) % partners.size).toInt() else -1
 
+    /**
+     * Tableau de score du match, centré en haut (repère 1920x1080) :
+     *  - onglet du haut : set en cours (ou « TIE-BREAK ») et compétition ;
+     *  - ligne principale : nom | sets gagnés | points, de chaque côté d'un filet blanc central,
+     *    avec un petit ballon devant le nom de l'équipe au service ;
+     *  - onglet du bas : le score de chaque set terminé, il s'élargit à chaque nouveau set.
+     */
     fun renderScoreboard(s: ScoreState, now: Long): Bitmap {
         val bitmap = empty()
         if (!s.overlayVisible) return bitmap
-        val canvas = designCanvas(bitmap)
-        canvas.drawBitmap(scoreboard, 0f, 0f, bitmapPaint)
+        val c = designCanvas(bitmap)
+        val hx = 960f - (NAME_W + SETS_W + PTS_W)      // bord gauche du tableau
+        val ax = 960f                                  // début de la moitié visiteurs
+        val nx = ax + PTS_W + SETS_W                   // début du nom des visiteurs
+        val ex = nx + NAME_W                           // bord droit du tableau
+        val y = ROW_Y
+        val b = ROW_Y + ROW_H
 
-        // Noms des équipes
-        drawText(canvas, s.homeName.uppercase(), 472f, 66f, 66f, bebas, maxWidth = 185f)
-        drawText(canvas, s.awayName.uppercase(), 1430f, 66f, 66f, bebas, maxWidth = 185f)
+        // Ligne principale (angles extérieurs coupés)
+        polygon(c, HOME_NAME, hx, y, hx + NAME_W, y, hx + NAME_W, b, hx + CUT, b, hx, b - CUT)
+        rect(c, hx + NAME_W, y, SETS_W, ROW_H, HOME_SETS)
+        rect(c, hx + NAME_W + SETS_W, y, PTS_W, ROW_H, HOME_PTS)
+        rect(c, ax, y, PTS_W, ROW_H, AWAY_PTS)
+        rect(c, ax + PTS_W, y, SETS_W, ROW_H, AWAY_SETS)
+        polygon(c, AWAY_NAME, nx, y, ex, y, ex, b - CUT, ex - CUT, b, nx, b)
+        rect(c, 958f, y, 4f, ROW_H, Color.WHITE)       // filet central
 
-        // Sets gagnés (sous les libellés « Set » du fond)
-        drawText(canvas, s.homeSets.toString(), 666f, 104f, 70f, bebas)
-        drawText(canvas, s.awaySets.toString(), 1243f, 104f, 70f, bebas)
+        // Noms, avec le ballon devant l'équipe au service
+        teamName(c, s.homeName, hx + 22, hx + NAME_W - 16, s.serving == Team.HOME, ballLeft = false)
+        teamName(c, s.awayName, nx + 16, ex - 22, s.serving == Team.AWAY, ballLeft = true)
 
-        // Points du set en cours
-        drawText(canvas, s.homeScore.toString(), 815f, 106f, 112f, bebas)
-        drawText(canvas, s.awayScore.toString(), 1113f, 106f, 112f, bebas)
-
-        // Onglet du haut : numéro du set
-        val suffix = if (s.setNumber == 1) "er" else "e"
-        drawText(canvas, "${s.setNumber} $suffix Set", 960f, 24f, 24f, josefin, maxWidth = 150f)
-
-        // Bandeau du bas : compétition
-        if (s.competition.isNotBlank()) {
-            drawText(canvas, s.competition, 960f, 141f, 21f, josefin, maxWidth = 350f)
+        // Sets gagnés (petit libellé « SETS » au-dessus)
+        for ((x, v) in listOf(hx + NAME_W + SETS_W / 2 to s.homeSets, ax + PTS_W + SETS_W / 2 to s.awaySets)) {
+            drawText(c, "SETS", x, y + 22, 13f, josefin, color = Color.argb(170, 255, 255, 255))
+            drawText(c, v.toString(), x, y + 72, 46f, bebas)
         }
 
-        // Indicateur de service : petit point blanc à côté du score de l'équipe au service
-        s.serving?.let { team ->
-            canvas.drawCircle(if (team == Team.HOME) 905f else 1015f, 96f, 9f, dot)
+        // Points du set en cours
+        drawText(c, s.homeScore.toString(), hx + NAME_W + SETS_W + PTS_W / 2, y + 72, 84f, bebas, maxWidth = PTS_W - 16)
+        drawText(c, s.awayScore.toString(), ax + PTS_W / 2, y + 72, 84f, bebas, maxWidth = PTS_W - 16)
+
+        // Onglet du haut : set en cours · compétition
+        val label = if (s.setNumber >= 5) "TIE-BREAK" else "SET ${s.setNumber}"
+        val comp = s.competition.trim().uppercase()
+        val rest = if (comp.isEmpty()) "" else "   ·   $comp"
+        text.typeface = josefin; text.textSize = 19f
+        val w1 = text.measureText(label)
+        text.typeface = josefinLight
+        var restSize = 19f
+        var w2 = text.measureText(rest)
+        if (w1 + w2 > TOP_TAB_MAX) {
+            restSize = 19f * (TOP_TAB_MAX - w1) / w2
+            text.textSize = restSize
+            w2 = text.measureText(rest)
+        }
+        val tw = w1 + w2 + 64
+        polygon(c, TAB, 960 - tw / 2, 0f, 960 + tw / 2, 0f, 960 + tw / 2 - 18, y, 960 - tw / 2 + 18, y)
+        val tx = 960 - (w1 + w2) / 2
+        drawText(c, label, tx, 24f, 19f, josefin, align = Paint.Align.LEFT)
+        if (rest.isNotEmpty()) drawText(c, rest, tx + w1, 24f, restSize, josefinLight, color = TAB_TEXT, align = Paint.Align.LEFT)
+
+        // Onglet du bas : sets terminés (gagnant en blanc, perdant en gris)
+        if (s.setScores.isNotEmpty()) {
+            val n = s.setScores.size
+            val w = n * CELL_W + 36
+            polygon(c, TAB, 960 - w / 2, b, 960 + w / 2, b, 960 + w / 2 - 16, b + 36, 960 - w / 2 + 16, b + 36)
+            text.typeface = bebas; text.textSize = 31f
+            val dash = text.measureText("-")
+            var x = 960 - n * CELL_W / 2
+            s.setScores.forEachIndexed { i, (h, a) ->
+                val cx = x + CELL_W / 2
+                if (i > 0) rect(c, x - 1, b + 8, 2f, 20f, CELL_SEP)
+                drawText(c, h.toString(), cx - dash / 2 - 3, b + 28, 31f, bebas, color = if (h > a) Color.WHITE else LOSER, align = Paint.Align.RIGHT)
+                drawText(c, "-", cx, b + 28, 31f, bebas, color = LOSER)
+                drawText(c, a.toString(), cx + dash / 2 + 3, b + 28, 31f, bebas, color = if (a > h) Color.WHITE else LOSER, align = Paint.Align.LEFT)
+                x += CELL_W
+            }
         }
 
         // Partenaires : un logo à la fois, en bas à droite
         val index = partnerIndex(s, now)
-        if (index >= 0) partnerTile(canvas, 1920f - 48 - 260f, 1080f - 48 - 150f, 260f, 150f, partners[index])
+        if (index >= 0) partnerTile(c, 1920f - 48 - 260f, 1080f - 48 - 150f, 260f, 150f, partners[index])
         return bitmap
+    }
+
+    /** Nom centré dans sa plaque, réduit s'il est trop long ; ballon de volley devant si l'équipe sert. */
+    private fun teamName(c: Canvas, name: String, x0: Float, x1: Float, serving: Boolean, ballLeft: Boolean) {
+        var a = x0
+        var b = x1
+        if (serving) {
+            val size = BALL_SIZE
+            val bx = if (ballLeft) x0 else x1 - size
+            val by = ROW_Y + (ROW_H - size) / 2
+            c.drawBitmap(serveBall, null, RectF(bx, by, bx + size, by + size), bitmapPaint)
+            if (ballLeft) a += size + 14 else b -= size + 14
+        }
+        drawText(c, name.uppercase(), (a + b) / 2, ROW_Y + 63, 58f, bebas, maxWidth = b - a)
+    }
+
+    private fun rect(c: Canvas, x: Float, y: Float, w: Float, h: Float, color: Int) {
+        fill.color = color
+        c.drawRect(x, y, x + w, y + h, fill)
     }
 
     /**
@@ -196,10 +262,12 @@ class OverlayRenderer(
         typeface: Typeface,
         maxWidth: Float = Float.MAX_VALUE,
         color: Int = Color.WHITE,
+        align: Paint.Align = Paint.Align.CENTER,
     ) {
         text.typeface = typeface
         text.textSize = size
         text.color = color
+        text.textAlign = align
         // Réduit la taille si le texte est trop long pour sa case
         val measured = text.measureText(value)
         if (measured > maxWidth) text.textSize = size * maxWidth / measured
@@ -207,6 +275,27 @@ class OverlayRenderer(
     }
 
     companion object {
+        // Tableau de score du match (repère 1920x1080)
+        private const val ROW_Y = 34f
+        private const val ROW_H = 84f
+        private const val NAME_W = 360f
+        private const val SETS_W = 66f
+        private const val PTS_W = 136f
+        private const val CUT = 26f
+        private const val CELL_W = 96f
+        private const val BALL_SIZE = 38f
+        private const val TOP_TAB_MAX = 700f
+        private val HOME_NAME = Color.rgb(208, 10, 10)
+        private val HOME_PTS = Color.rgb(163, 0, 0)
+        private val HOME_SETS = Color.rgb(94, 0, 0)
+        private val AWAY_NAME = Color.rgb(107, 107, 114)
+        private val AWAY_PTS = Color.rgb(85, 85, 92)
+        private val AWAY_SETS = Color.rgb(43, 43, 48)
+        private val TAB = Color.argb(235, 20, 20, 24)
+        private val TAB_TEXT = Color.rgb(205, 205, 210)
+        private val LOSER = Color.rgb(154, 154, 160)
+        private val CELL_SEP = Color.rgb(70, 70, 76)
+
         /** Couleurs des plaques sur l'écran de fin (celles du visuel). */
         private val HOME_COLOR = Color.rgb(229, 21, 17)
         private val AWAY_COLOR = Color.rgb(20, 80, 255)

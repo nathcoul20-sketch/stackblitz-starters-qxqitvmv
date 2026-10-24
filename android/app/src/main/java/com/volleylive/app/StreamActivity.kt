@@ -1,7 +1,12 @@
 package com.volleylive.app
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.os.BatteryManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.SurfaceHolder
@@ -31,6 +36,11 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         const val EXTRA_URL = "url"
         const val EXTRA_BACKUP_URL = "backupUrl"
         private const val MAX_RETRIES = 10
+        /** Au-delà, le téléphone chauffe (température de la batterie, °C). */
+        private const val HOT_TEMP = 43f
+        private val COLOR_OK = 0xFF20C07C.toInt()
+        private val COLOR_WARN = 0xFFFF9800.toInt()
+        private val COLOR_BAD = 0xFFE5484D.toInt()
     }
 
     /**
@@ -60,6 +70,20 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private var quality = Quality.AUTO
     private var weakCount = 0
     private var partners: List<android.graphics.Bitmap> = emptyList()
+
+    // Batterie et température (petit indicateur en haut à droite, alertes une fois par seuil)
+    private lateinit var deviceInfo: View
+    private lateinit var batteryIcon: ImageView
+    private lateinit var batteryBolt: ImageView
+    private lateinit var batteryText: TextView
+    private lateinit var tempIcon: ImageView
+    private lateinit var tempText: TextView
+    private var warned15 = false
+    private var warned5 = false
+    private var warnedHot = false
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = onBattery(intent)
+    }
     private var server: RemoteServer? = null
     private var facing = CameraHelper.Facing.BACK
 
@@ -93,6 +117,17 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
         url = intent.getStringExtra(EXTRA_URL) ?: ""
         backupUrl = intent.getStringExtra(EXTRA_BACKUP_URL) ?: ""
+        // L'appli a été fermée puis relancée par Android directement sur cet écran : on reprend
+        // le match sauvegardé (sinon le score repartirait de zéro)
+        if (ScoreManager.version == 0L) {
+            MatchStore.load(this)?.let { saved ->
+                ScoreManager.init(saved.state)
+                url = saved.session.url
+                backupUrl = saved.session.backupUrl
+                toast("Match en cours repris")
+            }
+        }
+        MatchStore.start(this, MatchStore.Session(url, backupUrl))
         prefs = Prefs(this)
         quality = runCatching { Quality.valueOf(prefs.quality) }.getOrDefault(Quality.AUTO)
         videoWidth = quality.width
@@ -135,7 +170,6 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         mapOf(
             R.id.homePlus to "home_plus", R.id.homeMinus to "home_minus",
             R.id.awayPlus to "away_plus", R.id.awayMinus to "away_minus",
-            R.id.undo to "undo",
         ).forEach { (id, action) -> findViewById<Button>(id).setOnClickListener { ScoreManager.apply(action) } }
         findViewById<Button>(R.id.endSet).setOnClickListener { confirmEndSet() }
         mapOf(
@@ -146,12 +180,25 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             button.setOnClickListener { ScoreManager.apply("scene_" + scene.name.lowercase()) }
         }
 
+        deviceInfo = findViewById(R.id.deviceInfo)
+        batteryIcon = findViewById(R.id.batteryIcon)
+        batteryBolt = findViewById(R.id.batteryBolt)
+        batteryText = findViewById(R.id.batteryText)
+        tempIcon = findViewById(R.id.tempIcon)
+        tempText = findViewById(R.id.tempText)
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 AlertDialog.Builder(this@StreamActivity)
                     .setTitle("Quitter ?")
-                    .setMessage(if (camera.isStreaming) "Le live sera arrêté et le score remis à zéro." else "Le score sera remis à zéro.")
-                    .setPositiveButton("Quitter") { _, _ -> finish() }
+                    .setMessage(
+                        (if (camera.isStreaming) "Le live sera arrêté. " else "") +
+                            "Le match sera terminé : il ne pourra plus être repris."
+                    )
+                    .setPositiveButton("Quitter") { _, _ ->
+                        MatchStore.clear(this@StreamActivity)
+                        finish()
+                    }
                     .setNegativeButton("Annuler", null)
                     .show()
             }
@@ -159,9 +206,14 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
         startRemoteServer()
         ScoreManager.addListener(scoreListener)
+        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.let { onBattery(it) }
     }
 
     override fun onDestroy() {
+        runCatching { unregisterReceiver(batteryReceiver) }
+        DeviceStatus.live = false
+        DeviceStatus.bitrate = 0
+        DeviceStatus.weakNetwork = false
         ScoreManager.removeListener(scoreListener)
         scenes.detach()
         audioMixer.release()
@@ -253,9 +305,12 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     private fun updateLiveUi() {
         liveButton.text = if (camera.isStreaming) "■ STOP" else "● LIVE"
+        DeviceStatus.live = camera.isStreaming
         if (!camera.isStreaming) {
             status.text = "Hors ligne"
             status.backgroundTintList = null
+            DeviceStatus.bitrate = 0
+            DeviceStatus.weakNetwork = false
         }
     }
 
@@ -303,6 +358,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         // Réseau faible : saturation, ou débit très en dessous de ce qui est demandé, plusieurs secondes de suite
         val weak = congestion || bitrate < quality.bitrate * (if (quality == Quality.AUTO) 0.4 else 0.6)
         weakCount = if (weak) weakCount + 1 else 0
+        DeviceStatus.bitrate = bitrate
+        DeviceStatus.weakNetwork = weakCount >= 3
         val mbps = String.format(Locale.FRANCE, "%.1f Mb/s", bitrate / 1_000_000.0)
         if (weakCount >= 3) {
             status.text = "⚠ RÉSEAU FAIBLE · $mbps" + if (quality == Quality.AUTO || quality == Quality.LOW) "" else "\nPassez en qualité Auto ou Basse"
@@ -350,6 +407,69 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     private fun updateQualityUi() {
         qualityButton.text = "Qualité : ${quality.label}"
+        DeviceStatus.quality = quality.label
+    }
+
+    // ---- Batterie et chauffe ----
+
+    private fun onBattery(intent: Intent) {
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+        val pct = if (level >= 0) level * 100 / scale else -1
+        val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
+        val temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10f
+        DeviceStatus.battery = pct
+        DeviceStatus.charging = plugged
+        DeviceStatus.temperature = temp
+        if (pct < 0) return
+        val hot = temp >= HOT_TEMP
+        // Petit indicateur en haut à droite : vert = OK, orange = à surveiller, rouge = alerte
+        deviceInfo.visibility = View.VISIBLE
+        batteryText.text = "$pct %"
+        batteryBolt.visibility = if (plugged) View.VISIBLE else View.GONE
+        batteryIcon.imageTintList = ColorStateList.valueOf(
+            when {
+                plugged || pct > 30 -> COLOR_OK
+                pct > 15 -> COLOR_WARN
+                else -> COLOR_BAD
+            }
+        )
+        tempText.text = String.format(Locale.FRANCE, "%.0f °C", temp)
+        tempIcon.imageTintList = ColorStateList.valueOf(
+            when {
+                hot -> COLOR_BAD
+                temp >= HOT_TEMP - 5 -> COLOR_WARN
+                else -> COLOR_OK
+            }
+        )
+        if (plugged) {
+            // En charge : les alertes pourront se redéclencher si on débranche plus tard
+            if (pct > 15) warned15 = false
+            if (pct > 5) warned5 = false
+        } else {
+            if (pct <= 5 && !warned5) {
+                warned5 = true; warned15 = true
+                alert("Batterie presque vide ($pct %)", "Le téléphone va bientôt s'éteindre. Branchez-le maintenant sur un chargeur ou une batterie externe.")
+            } else if (pct <= 15 && !warned15) {
+                warned15 = true
+                alert("Batterie faible ($pct %)", "Branchez une batterie externe pour ne pas couper le live. Le match est sauvegardé en continu.")
+            }
+        }
+        if (hot && !warnedHot) {
+            warnedHot = true
+            alert(
+                "Le téléphone chauffe (${temp.toInt()} °C)",
+                "Mettez-le à l'ombre, retirez sa coque si possible, et passez en qualité « Basse » ou « Moyenne ». " +
+                    "Un téléphone trop chaud peut couper la caméra.",
+            )
+        } else if (temp < HOT_TEMP - 3) {
+            warnedHot = false
+        }
+    }
+
+    private fun alert(title: String, message: String) {
+        if (isFinishing || isDestroyed) return
+        AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("OK", null).show()
     }
 
     override fun onDisconnect() = runOnUiThread { updateLiveUi() }

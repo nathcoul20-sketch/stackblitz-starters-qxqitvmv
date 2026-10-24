@@ -18,7 +18,8 @@ import com.pedro.library.view.GlInterface
  *  3. transition ECVB (vidéo avec transparence), jouée à chaque changement de scène.
  *
  * Le changement de scène a lieu au milieu de la transition, quand elle couvre tout l'écran.
- * Gère aussi le son : musique (micro coupé) en intro / fin, micro en match, bruitage des transitions.
+ * Gère aussi le son : musique (micro coupé) en intro / fin, micro en match, avec des fondus
+ * pendant les transitions (pas de bruitage).
  * Toutes les méthodes publiques s'appellent depuis le thread principal.
  */
 class SceneController(
@@ -54,6 +55,7 @@ class SceneController(
     private var videoPlayer: MediaPlayer? = null
     private var transitionPlayer: MediaPlayer? = null
     private var transitionReady = false
+    private var transitionDurationMs = DEFAULT_TRANSITION_MS
 
     private var state: ScoreState = ScoreManager.state
     private var shownScene: Scene? = null
@@ -105,7 +107,6 @@ class SceneController(
 
     private fun startTransition() {
         transitioning = true
-        audio.playTransitionSound()
         val player = transitionPlayer
         val filter = transitionFilter
         if (player == null || filter == null || !transitionReady) {
@@ -118,7 +119,11 @@ class SceneController(
         // Le calque n'est rendu visible qu'après quelques images : les premières sont transparentes
         // et cela évite d'afficher une image vide le temps que la vidéo démarre.
         main.postDelayed({ filter.alpha = 1f }, SHOW_DELAY_MS)
-        main.postDelayed({ showScene(state.scene) }, CUT_MS)
+        // Son : celui en cours s'éteint doucement jusqu'au changement d'écran, puis le nouveau remonte
+        // progressivement pendant que les volets s'ouvrent
+        audio.fadeOutFor(CUT_MS)
+        val fadeIn = (transitionDurationMs - CUT_MS).coerceAtLeast(500L)
+        main.postDelayed({ showScene(state.scene, fadeIn) }, CUT_MS)
         // Sécurité si la fin de la vidéo n'est jamais signalée
         main.postDelayed({ finishTransition(cut = false) }, TIMEOUT_MS)
     }
@@ -144,8 +149,11 @@ class SceneController(
                 setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }
             setSurface(surface)
-            setVolume(0f, 0f) // le bruitage est envoyé dans le live par AudioMixer
-            setOnPreparedListener { transitionReady = true }
+            setVolume(0f, 0f)
+            setOnPreparedListener {
+                transitionReady = true
+                if (it.duration > 0) transitionDurationMs = it.duration.toLong()
+            }
             setOnCompletionListener { finishTransition(cut = false) }
             setOnErrorListener { _, _, _ ->
                 transitionReady = false
@@ -158,9 +166,11 @@ class SceneController(
 
     // ---- Scènes ----
 
-    private fun showScene(scene: Scene) {
+    /** Affiche [scene] ; avec [fadeInMs], son son remonte progressivement (fin de transition). */
+    private fun showScene(scene: Scene, fadeInMs: Long? = null) {
         shownScene = scene
-        audio.musicOn = scene != Scene.MATCH
+        val music = scene != Scene.MATCH
+        if (fadeInMs != null) audio.fadeInFor(fadeInMs, music) else audio.crossfade(music)
         when (scene) {
             Scene.INTRO -> playVideo(R.raw.intro)
             Scene.OUTRO -> playVideo(R.raw.outro)
@@ -227,6 +237,8 @@ class SceneController(
         /** Changement de scène : les volets couvrent tout l'écran entre 0,3 s et 1,1 s. */
         private const val CUT_MS = 730L
         private const val TIMEOUT_MS = 3000L
+        /** Durée de la transition ECVB si elle n'est pas encore connue. */
+        private const val DEFAULT_TRANSITION_MS = 1_700L
         /** Reprise des vidéos d'intro et de fin (image clé placée à 4,5 s à l'encodage). */
         private const val LOOP_FROM_MS = 4_500L
     }

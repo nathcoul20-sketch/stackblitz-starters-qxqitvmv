@@ -26,6 +26,10 @@ object ScoreManager {
     var version: Long = 0
         private set
 
+    /** Appelé à chaque changement (thread de l'appelant) : sauvegarde du match en cours. */
+    @Volatile
+    var onCommit: ((ScoreState) -> Unit)? = null
+
     fun addListener(listener: (ScoreState) -> Unit) {
         listeners.add(listener)
         listener(state)
@@ -86,6 +90,7 @@ object ScoreManager {
                     ?.copy(scene = s.scene, audioMuted = s.audioMuted, partnersVisible = s.partnersVisible) ?: return false
                 state = previous
                 version++
+                onCommit?.invoke(previous)
                 notifyListeners(previous)
                 return true
             }
@@ -135,6 +140,7 @@ object ScoreManager {
     private fun commit(next: ScoreState) {
         state = next
         version++
+        onCommit?.invoke(next)
         notifyListeners(next)
     }
 

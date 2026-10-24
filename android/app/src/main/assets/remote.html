@@ -32,6 +32,10 @@
   .mute { width: 100%; margin-bottom: 12px; font-weight: 700; background: var(--panel); border: 2px solid #333; }
   .mute.on { background: var(--home); border-color: var(--home); }
   .mute.shown { background: #17432c; border-color: #2ecc71; }
+  .dev { font-size: 13px; color: var(--muted); margin: -4px 0 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .dev span { background: var(--panel); border-radius: 8px; padding: 4px 8px; }
+  .dev span.warn { background: #6b4a00; color: #fff; }
+  .dev span.bad { background: #b3261e; color: #fff; }
   .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
   .scenes button { background: var(--panel); border: 2px solid #333; font-weight: 700; }
   .scenes button.active { background: #fff; color: #111; border-color: #fff; }
@@ -89,6 +93,7 @@
   <div class="setno" id="setNo">1er set</div>
   <div class="conn" id="conn">Connexion…</div>
 </div>
+<div class="dev" id="dev"></div>
 
 <button id="muteBtn" data-a="toggle_mute" class="mute">🔊 Son du live : activé</button>
 
@@ -191,6 +196,7 @@
     });
     $('muteBtn').textContent = s.audioMuted ? '🔇 Son du live : COUPÉ (toucher pour remettre)' : '🔊 Son du live : activé (toucher pour couper)';
     $('muteBtn').classList.toggle('on', !!s.audioMuted);
+    renderDevice(s.device || {});
     $('partnersBtn').style.display = s.partnerCount > 0 ? '' : 'none';
     $('partnersBtn').textContent = s.partnersVisible
       ? 'Partenaires pendant le match : affichés (toucher pour masquer)'
@@ -202,6 +208,27 @@
       $('cfgAway').value = s.awayName;
       $('cfgComp').value = s.competition;
     }
+  }
+
+  // Téléphone qui filme : batterie, chauffe, réseau
+  function renderDevice(d) {
+    var parts = [];
+    if (d.battery >= 0) {
+      var cls = !d.charging && d.battery <= 15 ? 'bad' : (!d.charging && d.battery <= 30 ? 'warn' : '');
+      parts.push('<span class="' + cls + '">' + (d.charging ? '🔌 ' : '🔋 ') + d.battery + ' %</span>');
+      if (d.temperature) {
+        var t = Math.round(d.temperature);
+        parts.push('<span class="' + (t >= 43 ? 'bad' : (t >= 38 ? 'warn' : '')) + '">🌡 ' + t + ' °C</span>');
+      }
+    }
+    if (d.live) {
+      var mb = (d.bitrate / 1e6).toFixed(1).replace('.', ',');
+      parts.push('<span class="' + (d.weak ? 'bad' : '') + '">' + (d.weak ? '⚠ Réseau faible · ' : '📶 ') + mb + ' Mb/s' +
+        (d.quality ? ' · ' + d.quality : '') + '</span>');
+    } else {
+      parts.push('<span>Live arrêté' + (d.quality ? ' · qualité ' + d.quality : '') + '</span>');
+    }
+    $('dev').innerHTML = parts.join('');
   }
 
   function action(a) {
