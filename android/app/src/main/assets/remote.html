@@ -32,10 +32,18 @@
   .mute { width: 100%; margin-bottom: 12px; font-weight: 700; background: var(--panel); border: 2px solid #333; }
   .mute.on { background: var(--home); border-color: var(--home); }
   .mute.shown { background: #17432c; border-color: #2ecc71; }
-  .dev { font-size: 13px; color: var(--muted); margin: -4px 0 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .sub { display: flex; align-items: flex-start; gap: 10px; margin: -4px 0 10px; }
+  .dev { flex: 1; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; }
   .dev span { background: var(--panel); border-radius: 8px; padding: 4px 8px; }
   .dev span.warn { background: #6b4a00; color: #fff; }
   .dev span.bad { background: #b3261e; color: #fff; }
+  /* Son du live : petite bulle ronde, comme sur le téléphone qui filme */
+  .bubble { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; background: rgba(51, 51, 51, .8);
+    display: flex; align-items: center; justify-content: center; }
+  .bubble svg { width: 24px; height: 24px; fill: #fff; }
+  .bubble .off, .bubble.on .onIc { display: none; }
+  .bubble.on { background: var(--home); }
+  .bubble.on .off { display: block; }
   .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
   .scenes button { background: var(--panel); border: 2px solid #333; font-weight: 700; }
   .scenes button.active { background: #fff; color: #111; border-color: #fff; }
@@ -100,9 +108,13 @@
   <div class="setno" id="setNo">1er set</div>
   <div class="conn" id="conn">Connexion…</div>
 </div>
-<div class="dev" id="dev"></div>
-
-<button id="muteBtn" data-a="toggle_mute" class="mute">🔊 Son du live : activé</button>
+<div class="sub">
+  <div class="dev" id="dev"></div>
+  <button id="muteBtn" data-a="toggle_mute" class="bubble" aria-label="Couper le son du live" title="Couper le son du live">
+    <svg class="onIc" viewBox="0 0 24 24"><path d="M3,9v6h4l5,5V4L7,9H3zM16.5,12c0,-1.77 -1.02,-3.29 -2.5,-4.03v8.05c1.48,-0.73 2.5,-2.25 2.5,-4.02zM14,3.23v2.06c2.89,0.86 5,3.54 5,6.71s-2.11,5.85 -5,6.71v2.06c4.01,-0.91 7,-4.49 7,-8.77s-2.99,-7.86 -7,-8.77z"/></svg>
+    <svg class="off" viewBox="0 0 24 24"><path d="M16.5,12c0,-1.77 -1.02,-3.29 -2.5,-4.03v2.21l2.45,2.45c0.03,-0.2 0.05,-0.41 0.05,-0.63zM19,12c0,0.94 -0.2,1.82 -0.54,2.64l1.51,1.51C20.63,14.91 21,13.5 21,12c0,-4.28 -2.99,-7.86 -7,-8.77v2.06c2.89,0.86 5,3.54 5,6.71zM4.27,3L3,4.27 7.73,9H3v6h4l5,5v-6.73l4.25,4.25c-0.67,0.52 -1.42,0.93 -2.25,1.18v2.06c1.38,-0.31 2.63,-0.95 3.69,-1.81L19.73,21 21,19.73l-9,-9L4.27,3zM12,4L9.91,6.09 12,8.18V4z"/></svg>
+  </button>
+</div>
 
 <div class="label">Écran diffusé</div>
 <div class="scenes">
@@ -216,19 +228,20 @@
     document.querySelectorAll('[data-scene]').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-scene') === s.scene);
     });
-    $('muteBtn').textContent = s.audioMuted ? '🔇 Son du live : COUPÉ (toucher pour remettre)' : '🔊 Son du live : activé (toucher pour couper)';
     $('muteBtn').classList.toggle('on', !!s.audioMuted);
+    $('muteBtn').title = s.audioMuted ? 'Son du live coupé : toucher pour le remettre' : 'Couper le son du live';
+    $('muteBtn').setAttribute('aria-label', $('muteBtn').title);
     renderDevice(s.device || {}, s.twitch || {});
     var tw = s.twitch || {};
     $('viewersBtn').style.display = tw.viewersAvailable ? '' : 'none';
     $('viewersBtn').textContent = s.viewersVisible
-      ? 'Spectateurs dans le live : affichés (toucher pour masquer)'
-      : 'Spectateurs dans le live : masqués (toucher pour afficher)';
+      ? 'Spectateurs dans le live : affichés'
+      : 'Spectateurs dans le live : masqués';
     $('viewersBtn').classList.toggle('shown', !!s.viewersVisible);
     $('partnersBtn').style.display = s.partnerCount > 0 ? '' : 'none';
     $('partnersBtn').textContent = s.partnersVisible
-      ? 'Partenaires pendant le match : affichés (toucher pour masquer)'
-      : 'Partenaires pendant le match : masqués (toucher pour afficher)';
+      ? 'Partenaires pendant le match : affichés'
+      : 'Partenaires pendant le match : masqués';
     $('partnersBtn').classList.toggle('shown', !!s.partnersVisible);
     $('overlayBtn').textContent = s.overlayVisible ? "Masquer l'overlay" : "Afficher l'overlay";
     if (firstLoad || (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT')) {
