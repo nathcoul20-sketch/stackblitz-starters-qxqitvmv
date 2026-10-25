@@ -23,6 +23,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
@@ -53,7 +54,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var streamKey: EditText
     private lateinit var homeName: EditText
     private lateinit var awayName: EditText
-    private lateinit var competition: EditText
+    private lateinit var competition: MaterialAutoCompleteTextView
     private lateinit var partnersGrid: android.widget.GridLayout
     private lateinit var partnersInMatch: MaterialSwitch
     private lateinit var twitch: TwitchApi
@@ -108,7 +109,8 @@ class MainActivity : AppCompatActivity() {
         streamKey.setText(prefs.streamKey)
         homeName.setText(prefs.homeName)
         awayName.setText(prefs.awayName)
-        competition.setText(prefs.competition)
+        competition.setSimpleItems(Prefs.COMPETITIONS.toTypedArray())
+        competition.setText(prefs.competition, false)
         partnersInMatch.isChecked = prefs.partnersInMatch
         partnersInMatch.setOnCheckedChangeListener { _, checked -> prefs.partnersInMatch = checked }
         findViewById<Button>(R.id.addPartner).setOnClickListener {

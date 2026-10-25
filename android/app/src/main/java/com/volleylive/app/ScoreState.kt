@@ -12,7 +12,7 @@ enum class Scene { INTRO, MATCH, OUTRO }
 data class ScoreState(
     val homeName: String = "ECVB",
     val awayName: String = "VISITEUR",
-    val competition: String = "Championnat Régional Masculin",
+    val competition: String = Prefs.DEFAULT_COMPETITION,
     val homeScore: Int = 0,
     val awayScore: Int = 0,
     val homeSets: Int = 0,

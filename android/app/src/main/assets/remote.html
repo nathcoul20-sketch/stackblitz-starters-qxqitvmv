@@ -67,7 +67,7 @@
   details { margin-top: 18px; background: var(--panel); border-radius: 14px; padding: 12px; }
   summary { font-weight: 700; cursor: pointer; }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
-  input { width: 100%; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid #444;
+  input, select { width: 100%; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid #444;
     background: #111; color: var(--text); }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
   .danger { background: #5a1b1b; }
@@ -133,7 +133,13 @@
   <label for="cfgAway">Équipe visiteuse</label>
   <input id="cfgAway" maxlength="20">
   <label for="cfgComp">Compétition</label>
-  <input id="cfgComp" maxlength="60">
+  <select id="cfgComp">
+    <option>Championnat National 3 Masculin</option>
+    <option>Championnat Régional 1 Masculin</option>
+    <option>Championnat Régional 2 Féminin</option>
+    <option>Championnat Départemental Masculin</option>
+    <option>Championnat Départemental Féminin</option>
+  </select>
   <div class="row">
     <button id="saveCfg">Enregistrer</button>
     <button data-a="toggle_overlay" id="overlayBtn">Masquer l'overlay</button>
@@ -203,7 +209,7 @@
       : 'Partenaires pendant le match : masqués (toucher pour afficher)';
     $('partnersBtn').classList.toggle('shown', !!s.partnersVisible);
     $('overlayBtn').textContent = s.overlayVisible ? "Masquer l'overlay" : "Afficher l'overlay";
-    if (firstLoad || document.activeElement.tagName !== 'INPUT') {
+    if (firstLoad || (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT')) {
       $('cfgHome').value = s.homeName;
       $('cfgAway').value = s.awayName;
       $('cfgComp').value = s.competition;

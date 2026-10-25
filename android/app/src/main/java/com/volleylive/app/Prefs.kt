@@ -23,8 +23,9 @@ class Prefs(context: Context) {
         get() = sp.getString("awayName", "VISITEUR") ?: "VISITEUR"
         set(v) = sp.edit().putString("awayName", v).apply()
 
+    /** Compétition choisie dans la liste (une ancienne saisie libre est remplacée par la valeur par défaut). */
     var competition: String
-        get() = sp.getString("competition", "Championnat Régional Masculin") ?: ""
+        get() = sp.getString("competition", null)?.takeIf { it in COMPETITIONS } ?: DEFAULT_COMPETITION
         set(v) = sp.edit().putString("competition", v).apply()
 
     /** Qualité du live choisie sur l'écran caméra (Auto, Haute, Moyenne, Basse). */
@@ -68,4 +69,16 @@ class Prefs(context: Context) {
         get() = sp.getString("pin", null) ?: (1000..9999).random().toString().also {
             sp.edit().putString("pin", it).apply()
         }
+
+    companion object {
+        /** Compétitions proposées dans la liste déroulante (accueil et télécommande). */
+        val COMPETITIONS = listOf(
+            "Championnat National 3 Masculin",
+            "Championnat Régional 1 Masculin",
+            "Championnat Régional 2 Féminin",
+            "Championnat Départemental Masculin",
+            "Championnat Départemental Féminin",
+        )
+        val DEFAULT_COMPETITION = COMPETITIONS[1]
+    }
 }
