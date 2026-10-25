@@ -66,6 +66,13 @@
 
   details { margin-top: 18px; background: var(--panel); border-radius: 14px; padding: 12px; }
   summary { font-weight: 700; cursor: pointer; }
+  #chatBox summary .new { background: var(--home); color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 13px; margin-left: 6px; }
+  #chatList { max-height: 55vh; overflow-y: auto; margin-top: 10px; display: flex; flex-direction: column; gap: 6px;
+    user-select: text; -webkit-user-select: text; }
+  .msg { font-size: 15px; line-height: 1.35; word-wrap: break-word; overflow-wrap: anywhere; }
+  .msg b { font-weight: 700; }
+  .msg time { color: var(--muted); font-size: 11px; margin-right: 6px; }
+  .chatHint { color: var(--muted); font-size: 14px; margin-top: 8px; }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
   input, select { width: 100%; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid #444;
     background: #111; color: var(--text); }
@@ -105,6 +112,7 @@
 </div>
 
 <button id="partnersBtn" data-a="toggle_partners" class="mute" style="display:none">Partenaires pendant le match</button>
+<button id="viewersBtn" data-a="toggle_viewers" class="mute" style="display:none">Spectateurs dans le live</button>
 
 <div class="teams">
   <div class="team home" id="home">
@@ -125,6 +133,12 @@
   <button data-a="undo">↶ Annuler</button>
   <button id="endSet">Fin du set</button>
 </div>
+
+<details id="chatBox">
+  <summary>💬 Chat Twitch<span class="new" id="chatNew" style="display:none"></span></summary>
+  <div class="chatHint" id="chatHint">Connexion au chat…</div>
+  <div id="chatList"></div>
+</details>
 
 <details>
   <summary>Réglages du match</summary>
@@ -204,7 +218,13 @@
     });
     $('muteBtn').textContent = s.audioMuted ? '🔇 Son du live : COUPÉ (toucher pour remettre)' : '🔊 Son du live : activé (toucher pour couper)';
     $('muteBtn').classList.toggle('on', !!s.audioMuted);
-    renderDevice(s.device || {});
+    renderDevice(s.device || {}, s.twitch || {});
+    var tw = s.twitch || {};
+    $('viewersBtn').style.display = tw.viewersAvailable ? '' : 'none';
+    $('viewersBtn').textContent = s.viewersVisible
+      ? 'Spectateurs dans le live : affichés (toucher pour masquer)'
+      : 'Spectateurs dans le live : masqués (toucher pour afficher)';
+    $('viewersBtn').classList.toggle('shown', !!s.viewersVisible);
     $('partnersBtn').style.display = s.partnerCount > 0 ? '' : 'none';
     $('partnersBtn').textContent = s.partnersVisible
       ? 'Partenaires pendant le match : affichés (toucher pour masquer)'
@@ -219,8 +239,9 @@
   }
 
   // Téléphone qui filme : batterie, chauffe, réseau
-  function renderDevice(d) {
+  function renderDevice(d, tw) {
     var parts = [];
+    if (tw && tw.viewers >= 0) parts.push('<span>👁 ' + tw.viewers + (tw.viewers > 1 ? ' spectateurs' : ' spectateur') + '</span>');
     if (d.battery >= 0) {
       var cls = !d.charging && d.battery <= 15 ? 'bad' : (!d.charging && d.battery <= 30 ? 'warn' : '');
       parts.push('<span class="' + cls + '">' + (d.charging ? '🔌 ' : '🔋 ') + d.battery + ' %</span>');
@@ -296,6 +317,65 @@
     $('cfgCompOther').style.display = other ? '' : 'none';
     if (other) $('cfgCompOther').focus();
   });
+
+  // ---- Chat Twitch (lu par le téléphone qui filme) ----
+  var chatLast = 0, chatUnread = 0, chatBusy = false;
+  function two(n) { return (n < 10 ? '0' : '') + n; }
+  function addMessages(list) {
+    var box = $('chatList');
+    var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    list.forEach(function (m) {
+      var div = document.createElement('div');
+      div.className = 'msg';
+      div.setAttribute('data-id', m.id);
+      var t = new Date(m.at);
+      var time = document.createElement('time');
+      time.textContent = two(t.getHours()) + ':' + two(t.getMinutes());
+      var name = document.createElement('b');
+      name.textContent = m.name;
+      name.style.color = m.color || '#bf94ff';
+      div.appendChild(time);
+      div.appendChild(name);
+      div.appendChild(document.createTextNode(' : ' + m.text));
+      box.appendChild(div);
+      chatLast = Math.max(chatLast, m.id);
+    });
+    while (box.children.length > 150) box.removeChild(box.firstChild);
+    if (atBottom || !$('chatBox').open) box.scrollTop = box.scrollHeight;
+  }
+  function pollChat() {
+    if (chatBusy || !pin) return;
+    chatBusy = true;
+    api('/api/chat', { since: chatLast }).then(function (c) {
+      chatBusy = false;
+      (c.removed || []).forEach(function (id) {
+        var el = document.querySelector('.msg[data-id="' + id + '"]');
+        if (el) el.parentNode.removeChild(el);
+      });
+      var fresh = (c.messages || []).filter(function (m) { return m.id > chatLast; });
+      if (fresh.length) {
+        addMessages(fresh);
+        if (!$('chatBox').open) chatUnread += fresh.length;
+      }
+      var hint = '';
+      if (!c.channel) hint = 'Chat indisponible : connectez le compte Twitch dans l\'appli, ou indiquez le nom de la chaîne dans les réglages Twitch.';
+      else if (c.chat === 'connecting') hint = 'Connexion au chat de ' + c.channel + '…';
+      else if (c.chat === 'error') hint = 'Chat injoignable (réseau du téléphone qui filme), nouvel essai en cours…';
+      else if (!$('chatList').children.length) hint = 'Chat de ' + c.channel + ' : aucun message pour l\'instant.';
+      $('chatHint').textContent = hint;
+      $('chatHint').style.display = hint ? '' : 'none';
+      $('chatNew').textContent = chatUnread;
+      $('chatNew').style.display = chatUnread > 0 ? '' : 'none';
+    }).catch(function () { chatBusy = false; });
+  }
+  $('chatBox').addEventListener('toggle', function () {
+    if ($('chatBox').open) {
+      chatUnread = 0;
+      $('chatNew').style.display = 'none';
+      $('chatList').scrollTop = $('chatList').scrollHeight;
+    }
+  });
+  setInterval(pollChat, 2000);
 
   $('saveCfg').addEventListener('click', function () {
     var comp = $('cfgComp').value === '__autre' ? $('cfgCompOther').value.trim() : $('cfgComp').value;

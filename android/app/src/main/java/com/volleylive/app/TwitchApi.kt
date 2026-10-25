@@ -9,7 +9,7 @@ import org.json.JSONObject
 import java.io.IOException
 
 /**
- * Accès à l'API Twitch pour changer le titre du live.
+ * Accès à l'API Twitch : titre du live et nombre de spectateurs.
  *
  * Connexion du compte : « Device Code Flow » (application publique, sans mot de passe dans l'appli).
  * L'utilisateur ouvre twitch.tv/activate, se connecte et autorise l'appli ; on récupère alors un jeton
@@ -101,6 +101,13 @@ class TwitchApi(private val prefs: Prefs) {
             }
             JSONObject()
         }
+    }
+
+    /** Spectateurs du live en cours ; null si la chaîne n'est pas en direct. */
+    fun viewerCount(): Int? {
+        val json = authorized { token -> get("https://api.twitch.tv/helix/streams?user_id=${prefs.twitchUserId}", token) }
+        val data = json.getJSONArray("data")
+        return if (data.length() == 0) null else data.getJSONObject(0).optInt("viewer_count", 0)
     }
 
     // ---- Interne ----

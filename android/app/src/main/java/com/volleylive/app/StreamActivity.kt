@@ -218,6 +218,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         })
 
         startRemoteServer()
+        TwitchLive.start(prefs) // spectateurs + chat pour la télécommande
         ScoreManager.addListener(scoreListener)
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.let { onBattery(it) }
     }
@@ -239,6 +240,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     override fun onDestroy() {
         loadingHandler.removeCallbacksAndMessages(null)
+        TwitchLive.stop()
         runCatching { unregisterReceiver(batteryReceiver) }
         DeviceStatus.live = false
         DeviceStatus.bitrate = 0

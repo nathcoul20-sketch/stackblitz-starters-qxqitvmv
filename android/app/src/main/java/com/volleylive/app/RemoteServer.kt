@@ -42,6 +42,9 @@ class RemoteServer(
                     if (!ScoreManager.apply(action)) return@authorized error(Response.Status.BAD_REQUEST, "Action refusée")
                     stateResponse()
                 }
+                "/api/chat" -> authorized(params) {
+                    json(Response.Status.OK, TwitchLive.chatJson(params["since"]?.toLongOrNull() ?: 0L))
+                }
                 "/api/config" -> authorized(params) {
                     if (session.method != Method.POST) return@authorized error(Response.Status.METHOD_NOT_ALLOWED, "POST requis")
                     ScoreManager.configure(params["home"], params["away"], params["competition"])
@@ -63,6 +66,7 @@ class RemoteServer(
             .put("pageVersion", pageVersion)
             .put("partnerCount", partnerCount)
             .put("device", DeviceStatus.toJson())
+            .put("twitch", TwitchLive.statusJson())
         return json(Response.Status.OK, json)
     }
 

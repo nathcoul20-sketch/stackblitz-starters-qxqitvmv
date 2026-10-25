@@ -219,6 +219,21 @@
                     android:inputType="textNoSuggestions" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Sans compte connecté : nom de la chaîne, pour lire le chat sur la télécommande -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/twitchChannelLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="Nom de la chaîne Twitch (chat sur la télécommande)">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/twitchChannel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textNoSuggestions" />
+            </com.google.android.material.textfield.TextInputLayout>
+
             <Button
                 android:id="@+id/twitchConnect"
                 android:layout_width="match_parent"

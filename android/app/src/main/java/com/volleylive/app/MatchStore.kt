@@ -95,6 +95,7 @@ object MatchStore {
             scene = runCatching { Scene.valueOf(o.getString("scene").uppercase()) }.getOrDefault(Scene.MATCH),
             audioMuted = o.optBoolean("audioMuted"),
             partnersVisible = o.optBoolean("partnersVisible"),
+            viewersVisible = o.optBoolean("viewersVisible", true),
             setScores = o.optJSONArray("setScores")?.let { a ->
                 (0 until a.length()).map { i -> a.getJSONArray(i).let { it.getInt(0) to it.getInt(1) } }
             } ?: emptyList(),

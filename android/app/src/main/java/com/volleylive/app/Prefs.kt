@@ -62,6 +62,11 @@ class Prefs(context: Context) {
         get() = sp.getString("twitchLogin", "") ?: ""
         set(v) = sp.edit().putString("twitchLogin", v).apply()
 
+    /** Nom de la chaîne Twitch (chat sur la télécommande) si le compte n'est pas connecté. */
+    var twitchChannel: String
+        get() = sp.getString("twitchChannel", "") ?: ""
+        set(v) = sp.edit().putString("twitchChannel", v).apply()
+
     var twitchAutoTitle: Boolean
         get() = sp.getBoolean("twitchAutoTitle", true)
         set(v) = sp.edit().putBoolean("twitchAutoTitle", v).apply()

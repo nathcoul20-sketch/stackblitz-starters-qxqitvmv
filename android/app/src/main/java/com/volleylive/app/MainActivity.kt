@@ -65,6 +65,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var twitchTitlePreview: TextView
     private lateinit var twitchStatus: TextView
     private lateinit var twitchClientIdLayout: View
+    private lateinit var twitchChannelLayout: View
+    private lateinit var twitchChannel: EditText
     private lateinit var twitchClientId: EditText
     private lateinit var twitchConnect: Button
     @Volatile private var twitchLoginCancelled = false
@@ -108,6 +110,9 @@ class MainActivity : AppCompatActivity() {
         twitchTitlePreview = findViewById(R.id.twitchTitlePreview)
         twitchStatus = findViewById(R.id.twitchStatus)
         twitchClientIdLayout = findViewById(R.id.twitchClientIdLayout)
+        twitchChannelLayout = findViewById(R.id.twitchChannelLayout)
+        twitchChannel = findViewById(R.id.twitchChannel)
+        twitchChannel.setText(prefs.twitchChannel)
         twitchClientId = findViewById(R.id.twitchClientId)
         twitchConnect = findViewById(R.id.twitchConnect)
 
@@ -223,6 +228,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         prefs.platform = selected.label
+        prefs.twitchChannel = twitchChannel.text.toString().trim().substringAfterLast('/').removePrefix("#").removePrefix("@")
         if (key.isNotEmpty()) prefs.streamKey = key
         prefs.homeName = homeName.text.toString().trim().ifEmpty { "DOMICILE" }
         prefs.awayName = awayName.text.toString().trim().ifEmpty { "VISITEUR" }
@@ -352,10 +358,12 @@ class MainActivity : AppCompatActivity() {
         if (twitch.isConnected) {
             twitchStatus.text = "✔ Compte Twitch connecté : ${prefs.twitchLogin}"
             twitchClientIdLayout.visibility = View.GONE
+            twitchChannelLayout.visibility = View.GONE
             twitchConnect.text = "Déconnecter le compte Twitch"
         } else {
             twitchStatus.text = "Compte Twitch non connecté : le titre ne sera pas modifié."
             twitchClientIdLayout.visibility = View.VISIBLE
+            twitchChannelLayout.visibility = View.VISIBLE
             twitchConnect.text = "Connecter mon compte Twitch"
         }
     }
