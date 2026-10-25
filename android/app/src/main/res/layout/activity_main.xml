@@ -12,12 +12,39 @@
         android:orientation="vertical"
         android:padding="20dp">
 
-        <TextView
+        <!-- En-tête : logo du club et « ECVB LIVE » -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/app_name"
-            android:textSize="28sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="64dp"
+                android:adjustViewBounds="true"
+                android:contentDescription="Logo ECVB"
+                android:src="@drawable/logo_ecvb" />
+
+            <TextView
+                android:id="@+id/titleEcvb"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:letterSpacing="0.03"
+                android:text="ECVB"
+                android:textSize="38sp" />
+
+            <TextView
+                android:id="@+id/titleLive"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:letterSpacing="0.03"
+                android:text="LIVE"
+                android:textColor="#E5302A"
+                android:textSize="38sp" />
+        </LinearLayout>
 
         <!-- Match en cours sauvegardé (appli fermée pendant un match) -->
         <Button
@@ -244,6 +271,23 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="none" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- « Autre… » : nom libre -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/competitionOtherLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Nom de la compétition"
+            android:visibility="gone">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/competitionOther"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapSentences"
+                android:maxLength="60" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <TextView

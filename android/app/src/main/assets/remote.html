@@ -139,7 +139,9 @@
     <option>Championnat Régional 2 Féminin</option>
     <option>Championnat Départemental Masculin</option>
     <option>Championnat Départemental Féminin</option>
+    <option value="__autre">Autre…</option>
   </select>
+  <input id="cfgCompOther" maxlength="60" placeholder="Nom de la compétition" style="display:none; margin-top:8px">
   <div class="row">
     <button id="saveCfg">Enregistrer</button>
     <button data-a="toggle_overlay" id="overlayBtn">Masquer l'overlay</button>
@@ -212,7 +214,7 @@
     if (firstLoad || (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT')) {
       $('cfgHome').value = s.homeName;
       $('cfgAway').value = s.awayName;
-      $('cfgComp').value = s.competition;
+      setCompetition(s.competition);
     }
   }
 
@@ -282,8 +284,23 @@
     if (confirm('Remettre tout le match à zéro ?')) action('reset');
   });
 
+  // Compétition : une valeur de la liste, ou « Autre… » avec saisie libre
+  function setCompetition(c) {
+    var known = Array.prototype.some.call($('cfgComp').options, function (o) { return o.value === c && c !== '__autre'; });
+    $('cfgComp').value = known ? c : '__autre';
+    $('cfgCompOther').value = known ? '' : c;
+    $('cfgCompOther').style.display = known ? 'none' : '';
+  }
+  $('cfgComp').addEventListener('change', function () {
+    var other = $('cfgComp').value === '__autre';
+    $('cfgCompOther').style.display = other ? '' : 'none';
+    if (other) $('cfgCompOther').focus();
+  });
+
   $('saveCfg').addEventListener('click', function () {
-    api('/api/config', { home: $('cfgHome').value, away: $('cfgAway').value, competition: $('cfgComp').value }, 'POST')
+    var comp = $('cfgComp').value === '__autre' ? $('cfgCompOther').value.trim() : $('cfgComp').value;
+    if (!comp) { $('cfgCompOther').focus(); return; }
+    api('/api/config', { home: $('cfgHome').value, away: $('cfgAway').value, competition: comp }, 'POST')
       .then(function (s) { render(s); document.activeElement.blur(); })
       .catch(function () {});
   });

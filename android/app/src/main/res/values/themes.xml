@@ -8,6 +8,13 @@
         <item name="android:windowFullscreen">true</item>
     </style>
 
+    <!-- Écran de chargement : fond sombre dès l'ouverture (pas de flash blanc) -->
+    <style name="Theme.VolleyLive.Splash" parent="Theme.VolleyLive">
+        <item name="android:windowBackground">@color/splash_bg</item>
+        <item name="android:statusBarColor">@color/splash_bg</item>
+        <item name="android:navigationBarColor">@color/splash_bg</item>
+    </style>
+
     <style name="SectionTitle">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>

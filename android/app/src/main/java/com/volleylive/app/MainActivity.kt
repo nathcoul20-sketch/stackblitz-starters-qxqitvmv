@@ -55,6 +55,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var homeName: EditText
     private lateinit var awayName: EditText
     private lateinit var competition: MaterialAutoCompleteTextView
+    private lateinit var competitionOtherLayout: View
+    private lateinit var competitionOther: EditText
     private lateinit var partnersGrid: android.widget.GridLayout
     private lateinit var partnersInMatch: MaterialSwitch
     private lateinit var twitch: TwitchApi
@@ -86,12 +88,18 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         fitAboveSystemBarsAndKeyboard()
         prefs = Prefs(this)
+        // Titre « ECVB LIVE » dans la police du live
+        runCatching { android.graphics.Typeface.createFromAsset(assets, "fonts/BebasNeue-Regular.ttf") }.getOrNull()?.let { bebas ->
+            listOf(R.id.titleEcvb, R.id.titleLive).forEach { findViewById<TextView>(it).typeface = bebas }
+        }
 
         streamKey = findViewById(R.id.streamKey)
         streamKeyLayout = findViewById(R.id.streamKeyLayout)
         homeName = findViewById(R.id.homeName)
         awayName = findViewById(R.id.awayName)
         competition = findViewById(R.id.competition)
+        competitionOtherLayout = findViewById(R.id.competitionOtherLayout)
+        competitionOther = findViewById(R.id.competitionOther)
         partnersGrid = findViewById(R.id.partners)
         partnersInMatch = findViewById(R.id.partnersInMatch)
         twitch = TwitchApi(prefs)
@@ -109,8 +117,22 @@ class MainActivity : AppCompatActivity() {
         streamKey.setText(prefs.streamKey)
         homeName.setText(prefs.homeName)
         awayName.setText(prefs.awayName)
-        competition.setSimpleItems(Prefs.COMPETITIONS.toTypedArray())
-        competition.setText(prefs.competition, false)
+        val competitionItems = Prefs.COMPETITIONS + Prefs.OTHER_COMPETITION
+        competition.setSimpleItems(competitionItems.toTypedArray())
+        val savedCompetition = prefs.competition
+        if (savedCompetition in Prefs.COMPETITIONS) {
+            competition.setText(savedCompetition, false)
+        } else {
+            competition.setText(Prefs.OTHER_COMPETITION, false)
+            competitionOther.setText(savedCompetition)
+        }
+        competitionOtherLayout.visibility = if (isOtherCompetition()) View.VISIBLE else View.GONE
+        competition.setOnItemClickListener { _, _, position, _ ->
+            val other = competitionItems[position] == Prefs.OTHER_COMPETITION
+            competitionOtherLayout.visibility = if (other) View.VISIBLE else View.GONE
+            if (other) competitionOther.requestFocus()
+            updateTwitchTitlePreview()
+        }
         partnersInMatch.isChecked = prefs.partnersInMatch
         partnersInMatch.setOnCheckedChangeListener { _, checked -> prefs.partnersInMatch = checked }
         findViewById<Button>(R.id.addPartner).setOnClickListener {
@@ -127,7 +149,7 @@ class MainActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) = updateTwitchTitlePreview()
         }
-        listOf(homeName, awayName, competition).forEach { it.addTextChangedListener(previewUpdater) }
+        listOf(homeName, awayName, competition, competitionOther).forEach { it.addTextChangedListener(previewUpdater) }
         updateTwitchTitlePreview()
         updateTwitchUi()
 
@@ -204,7 +226,12 @@ class MainActivity : AppCompatActivity() {
         if (key.isNotEmpty()) prefs.streamKey = key
         prefs.homeName = homeName.text.toString().trim().ifEmpty { "DOMICILE" }
         prefs.awayName = awayName.text.toString().trim().ifEmpty { "VISITEUR" }
-        prefs.competition = competition.text.toString().trim()
+        if (isOtherCompetition() && competitionValue().isEmpty()) {
+            competitionOther.error = "Écrivez le nom de la compétition"
+            competitionOther.requestFocus()
+            return
+        }
+        prefs.competition = competitionValue()
 
         val start = {
             resumeAfterPermission = false
@@ -248,6 +275,14 @@ class MainActivity : AppCompatActivity() {
                 .putExtra(StreamActivity.EXTRA_BACKUP_URL, backupUrl)
         )
     }
+
+    // ---- Compétition ----
+
+    private fun isOtherCompetition() = competition.text.toString() == Prefs.OTHER_COMPETITION
+
+    /** Nom de la compétition : celui de la liste, ou le nom écrit pour « Autre… ». */
+    private fun competitionValue(): String =
+        if (isOtherCompetition()) competitionOther.text.toString().trim() else competition.text.toString().trim()
 
     // ---- Partenaires ----
 
@@ -306,7 +341,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateTwitchTitlePreview() {
         val title = TwitchApi.buildTitle(
-            competition.text.toString(),
+            competitionValue(),
             homeName.text.toString().ifBlank { "DOMICILE" },
             awayName.text.toString().ifBlank { "VISITEUR" },
         )

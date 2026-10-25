@@ -23,9 +23,11 @@ class Prefs(context: Context) {
         get() = sp.getString("awayName", "VISITEUR") ?: "VISITEUR"
         set(v) = sp.edit().putString("awayName", v).apply()
 
-    /** Compétition choisie dans la liste (une ancienne saisie libre est remplacée par la valeur par défaut). */
+    /** Compétition : un nom de la liste, ou un nom libre (« Autre »). */
     var competition: String
-        get() = sp.getString("competition", null)?.takeIf { it in COMPETITIONS } ?: DEFAULT_COMPETITION
+        get() = sp.getString("competition", null)
+            ?.takeIf { it.isNotBlank() && it != "Championnat Régional Masculin" } // ancienne valeur par défaut
+            ?: DEFAULT_COMPETITION
         set(v) = sp.edit().putString("competition", v).apply()
 
     /** Qualité du live choisie sur l'écran caméra (Auto, Haute, Moyenne, Basse). */
@@ -80,5 +82,7 @@ class Prefs(context: Context) {
             "Championnat Départemental Féminin",
         )
         val DEFAULT_COMPETITION = COMPETITIONS[1]
+        /** Dernier choix de la liste : saisie libre. */
+        const val OTHER_COMPETITION = "Autre…"
     }
 }
