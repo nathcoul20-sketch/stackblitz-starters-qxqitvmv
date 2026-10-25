@@ -11,10 +11,6 @@ class Prefs(context: Context) {
         get() = sp.getString("platformName", "Twitch") ?: "Twitch"
         set(v) = sp.edit().putString("platformName", v).apply()
 
-    var serverUrl: String
-        get() = sp.getString("serverUrl", "") ?: ""
-        set(v) = sp.edit().putString("serverUrl", v).apply()
-
     var streamKey: String
         get() = sp.getString("streamKey", "") ?: ""
         set(v) = sp.edit().putString("streamKey", v).apply()

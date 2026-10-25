@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Bord des boutons « Twitch » / « Test hors ligne » -->
+    <color name="platform_selected">#D00A0A</color>
+    <color name="platform_idle">#33888888</color>
+</resources>

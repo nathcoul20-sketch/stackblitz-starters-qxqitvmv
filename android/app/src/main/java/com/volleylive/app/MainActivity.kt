@@ -9,12 +9,9 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
-import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,14 +21,17 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
-import com.google.android.material.textfield.TextInputLayout
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
-    /** [backupUrl] : 2e serveur essayé en alternance si le premier refuse la connexion. */
-    private data class Platform(val label: String, val url: String?, val backupUrl: String? = null)
+    /**
+     * [url] vide : test hors ligne (pas de diffusion).
+     * [backupUrl] : 2e serveur essayé en alternance si le premier refuse la connexion.
+     */
+    private data class Platform(val label: String, val url: String, val backupUrl: String? = null)
 
     private val platforms = listOf(
         // Serveur d'ingestion global recommandé par Twitch. RTMPS sur le port 443 en premier :
@@ -41,14 +41,15 @@ class MainActivity : AppCompatActivity() {
             "rtmps://ingest.global-contribute.live-video.net:443/app",
             "rtmp://ingest.global-contribute.live-video.net/app",
         ),
-        Platform("Serveur personnalisé", null),
-        Platform("Pas de live (test overlay / télécommande)", ""),
+        Platform("Test hors ligne", ""),
     )
 
+    /** Choix en cours : 0 = Twitch, 1 = test hors ligne (deux grands boutons). */
+    private var platformIndex = 0
+    private lateinit var platformCards: List<MaterialCardView>
+    private lateinit var streamKeyLayout: View
+
     private lateinit var prefs: Prefs
-    private lateinit var platform: Spinner
-    private lateinit var serverUrlLayout: TextInputLayout
-    private lateinit var serverUrl: EditText
     private lateinit var streamKey: EditText
     private lateinit var homeName: EditText
     private lateinit var awayName: EditText
@@ -85,10 +86,8 @@ class MainActivity : AppCompatActivity() {
         fitAboveSystemBarsAndKeyboard()
         prefs = Prefs(this)
 
-        platform = findViewById(R.id.platform)
-        serverUrlLayout = findViewById(R.id.serverUrlLayout)
-        serverUrl = findViewById(R.id.serverUrl)
         streamKey = findViewById(R.id.streamKey)
+        streamKeyLayout = findViewById(R.id.streamKeyLayout)
         homeName = findViewById(R.id.homeName)
         awayName = findViewById(R.id.awayName)
         competition = findViewById(R.id.competition)
@@ -103,21 +102,9 @@ class MainActivity : AppCompatActivity() {
         twitchClientId = findViewById(R.id.twitchClientId)
         twitchConnect = findViewById(R.id.twitchConnect)
 
-        platform.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_dropdown_item, platforms.map { it.label }
-        )
-        platform.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                serverUrlLayout.visibility = if (platforms[position].url == null) View.VISIBLE else View.GONE
-                streamKey.isEnabled = platforms[position].url != ""
-                twitchSection.visibility = if (isTwitch(position)) View.VISIBLE else View.GONE
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-
-        platform.setSelection(platforms.indexOfFirst { it.label == prefs.platform }.coerceAtLeast(0))
-        serverUrl.setText(prefs.serverUrl)
+        platformCards = listOf(findViewById(R.id.platformTwitch), findViewById(R.id.platformTest))
+        platformCards.forEachIndexed { i, card -> card.setOnClickListener { selectPlatform(i) } }
+        selectPlatform(if (prefs.platform == "Twitch" || prefs.platform == "Serveur personnalisé") 0 else 1)
         streamKey.setText(prefs.streamKey)
         homeName.setText(prefs.homeName)
         awayName.setText(prefs.awayName)
@@ -189,23 +176,30 @@ class MainActivity : AppCompatActivity() {
         if (missing.isEmpty()) action() else permissionLauncher.launch(missing.toTypedArray())
     }
 
-    private fun onStartClicked() {
-        val selected = platforms[platform.selectedItemPosition]
-        val key = cleanKey(streamKey.text.toString())
-        val custom = serverUrl.text.toString().trim()
-
-        if (selected.url == null && !custom.startsWith("rtmp")) {
-            serverUrl.error = "L'URL doit commencer par rtmp:// ou rtmps://"
-            return
+    /** Sélectionne Twitch ou le test hors ligne : la clé et la section Twitch n'apparaissent que pour Twitch. */
+    private fun selectPlatform(index: Int) {
+        platformIndex = index
+        val selectedStroke = ContextCompat.getColor(this, R.color.platform_selected)
+        val idleStroke = ContextCompat.getColor(this, R.color.platform_idle)
+        platformCards.forEachIndexed { i, card ->
+            card.isChecked = i == index
+            card.strokeColor = if (i == index) selectedStroke else idleStroke
         }
-        if (!selected.url.isNullOrEmpty() && key.isEmpty()) {
+        val twitchSelected = isTwitch(index)
+        streamKeyLayout.visibility = if (twitchSelected) View.VISIBLE else View.GONE
+        twitchSection.visibility = if (twitchSelected) View.VISIBLE else View.GONE
+    }
+
+    private fun onStartClicked() {
+        val selected = platforms[platformIndex]
+        val key = cleanKey(streamKey.text.toString())
+        if (selected.url.isNotEmpty() && key.isEmpty()) {
             streamKey.error = "Clé de diffusion requise"
             return
         }
 
-        prefs.platform = platforms[platform.selectedItemPosition].label
-        prefs.serverUrl = custom
-        prefs.streamKey = key
+        prefs.platform = selected.label
+        if (key.isNotEmpty()) prefs.streamKey = key
         prefs.homeName = homeName.text.toString().trim().ifEmpty { "DOMICILE" }
         prefs.awayName = awayName.text.toString().trim().ifEmpty { "VISITEUR" }
         prefs.competition = competition.text.toString().trim()
@@ -229,16 +223,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openCamera() {
-        val selected = platforms[platform.selectedItemPosition]
+        val selected = platforms[platformIndex]
         val key = prefs.streamKey
-        val url = when {
-            selected.url == "" -> ""
-            selected.url == null -> if (key.isEmpty()) prefs.serverUrl else joinUrl(prefs.serverUrl, key)
-            else -> joinUrl(selected.url, key)
-        }
-        val backupUrl = selected.backupUrl?.let { joinUrl(it, key) } ?: ""
+        val url = if (selected.url.isEmpty()) "" else joinUrl(selected.url, key)
+        val backupUrl = if (selected.url.isEmpty()) "" else selected.backupUrl?.let { joinUrl(it, key) } ?: ""
 
-        if (isTwitch(platform.selectedItemPosition) && prefs.twitchAutoTitle && twitch.isConnected) {
+        if (isTwitch(platformIndex) && prefs.twitchAutoTitle && twitch.isConnected) {
             updateTwitchTitle(TwitchApi.buildTitle(prefs.competition, prefs.homeName, prefs.awayName))
         }
 
