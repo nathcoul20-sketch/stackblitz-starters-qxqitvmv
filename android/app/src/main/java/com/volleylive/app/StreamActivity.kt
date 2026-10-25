@@ -38,6 +38,9 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         private const val MAX_RETRIES = 10
         /** Au-delà, le téléphone chauffe (température de la batterie, °C). */
         private const val HOT_TEMP = 43f
+        /** Écran de chargement à l'ouverture de la caméra : durée minimale et maximale. */
+        private const val LOADING_MIN_MS = 700L
+        private const val LOADING_MAX_MS = 5_000L
         private val COLOR_OK = 0xFF20C07C.toInt()
         private val COLOR_WARN = 0xFFFF9800.toInt()
         private val COLOR_BAD = 0xFFE5484D.toInt()
@@ -84,6 +87,11 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = onBattery(intent)
     }
+    /** Écran de chargement : masque la caméra jusqu'à ce que l'écran d'intro soit affiché. */
+    private lateinit var loadingOverlay: View
+    private val loadingHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val openedAt = android.os.SystemClock.uptimeMillis()
+
     private var server: RemoteServer? = null
     private var facing = CameraHelper.Facing.BACK
 
@@ -180,6 +188,11 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
             button.setOnClickListener { ScoreManager.apply("scene_" + scene.name.lowercase()) }
         }
 
+        loadingOverlay = findViewById(R.id.loadingOverlay)
+        LoadingScreen.show(loadingOverlay)
+        scenes.onReady = { hideLoading() }
+        loadingHandler.postDelayed({ hideLoading() }, LOADING_MAX_MS) // sécurité
+
         deviceInfo = findViewById(R.id.deviceInfo)
         batteryIcon = findViewById(R.id.batteryIcon)
         batteryBolt = findViewById(R.id.batteryBolt)
@@ -209,7 +222,23 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.let { onBattery(it) }
     }
 
+    /** Fait disparaître l'écran de chargement en fondu (affiché au moins [LOADING_MIN_MS]). */
+    private fun hideLoading() {
+        if (loadingOverlay.visibility != View.VISIBLE || loadingOverlay.tag == "hiding") return
+        val wait = LOADING_MIN_MS - (android.os.SystemClock.uptimeMillis() - openedAt)
+        if (wait > 0) {
+            loadingHandler.postDelayed({ hideLoading() }, wait)
+            return
+        }
+        loadingOverlay.tag = "hiding"
+        loadingHandler.removeCallbacksAndMessages(null)
+        loadingOverlay.animate().alpha(0f).setDuration(250).withEndAction {
+            loadingOverlay.visibility = View.GONE
+        }.start()
+    }
+
     override fun onDestroy() {
+        loadingHandler.removeCallbacksAndMessages(null)
         runCatching { unregisterReceiver(batteryReceiver) }
         DeviceStatus.live = false
         DeviceStatus.bitrate = 0

@@ -5,55 +5,9 @@
     android:layout_height="match_parent"
     android:background="@color/splash_bg">
 
-    <LinearLayout
+    <include
+        layout="@layout/loading_content"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:gravity="center_horizontal"
-        android:orientation="vertical">
-
-        <ImageView
-            android:id="@+id/splashLogo"
-            android:layout_width="wrap_content"
-            android:layout_height="190dp"
-            android:adjustViewBounds="true"
-            android:contentDescription="Logo ECVB"
-            android:src="@drawable/logo_ecvb" />
-
-        <LinearLayout
-            android:id="@+id/splashTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/splashEcvb"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:letterSpacing="0.04"
-                android:text="ECVB"
-                android:textColor="#FFFFFF"
-                android:textSize="44sp" />
-
-            <TextView
-                android:id="@+id/splashLive"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:letterSpacing="0.04"
-                android:text="LIVE"
-                android:textColor="#E5302A"
-                android:textSize="44sp" />
-        </LinearLayout>
-
-        <ProgressBar
-            android:id="@+id/splashProgress"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="120dp"
-            android:layout_height="4dp"
-            android:layout_marginTop="18dp"
-            android:indeterminate="true"
-            android:indeterminateTint="#E5302A" />
-    </LinearLayout>
+        android:layout_gravity="center" />
 </FrameLayout>

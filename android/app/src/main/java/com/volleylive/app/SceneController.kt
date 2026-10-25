@@ -37,6 +37,17 @@ class SceneController(
 
     private val main = Handler(Looper.getMainLooper())
 
+    /**
+     * Appelé une fois, quand l'image de la scène est vraiment prête (1re image de la vidéo d'intro
+     * affichée, ou tableau de score posé en match) : l'écran de chargement peut disparaître.
+     */
+    var onReady: (() -> Unit)? = null
+    private fun ready() {
+        val callback = onReady ?: return
+        onReady = null
+        main.post(callback)
+    }
+
     /** Pendant le match : redessine le tableau quand le logo partenaire affiché doit changer. */
     private val ticker = Handler(Looper.getMainLooper())
     private var shownPartner = -1
@@ -178,6 +189,7 @@ class SceneController(
                 videoFilter?.alpha = 0f
                 videoPlayer?.release()
                 videoPlayer = null
+                ready()
             }
         }
         refreshOverlay()
@@ -218,6 +230,12 @@ class SceneController(
             setOnPreparedListener {
                 it.start()
                 filter.alpha = 1f
+                // Au cas où la 1re image ne serait pas signalée
+                ticker.postDelayed({ ready() }, 600L)
+            }
+            setOnInfoListener { _, what, _ ->
+                if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) ticker.postDelayed({ ready() }, 120L)
+                false
             }
             // Fin de la vidéo : on repart du milieu (image clé), sans rejouer l'animation d'entrée.
             // Les chevrons animés ont un cycle de 4,5 s : la reprise ne se voit pas.
