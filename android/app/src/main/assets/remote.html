@@ -44,7 +44,7 @@
   .bubble .off, .bubble.on .onIc { display: none; }
   .bubble.on { background: var(--home); }
   .bubble.on .off { display: block; }
-  .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .scenes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
   .scenes button { background: var(--panel); border: 2px solid #333; font-weight: 700; }
   .scenes button.active { background: #fff; color: #111; border-color: #fff; }
 
@@ -120,6 +120,7 @@
 <div class="scenes">
   <button data-a="scene_intro" data-scene="intro">Intro</button>
   <button data-a="scene_match" data-scene="match">Match</button>
+  <button data-a="scene_pause" data-scene="pause">Pause</button>
   <button data-a="scene_outro" data-scene="outro">Fin</button>
 </div>
 

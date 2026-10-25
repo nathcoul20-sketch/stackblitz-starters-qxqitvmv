@@ -192,7 +192,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         ).forEach { (id, action) -> findViewById<Button>(id).setOnClickListener { ScoreManager.apply(action) } }
         findViewById<Button>(R.id.endSet).setOnClickListener { confirmEndSet() }
         mapOf(
-            Scene.INTRO to R.id.sceneIntro, Scene.MATCH to R.id.sceneMatch, Scene.OUTRO to R.id.sceneOutro,
+            Scene.INTRO to R.id.sceneIntro, Scene.MATCH to R.id.sceneMatch,
+            Scene.PAUSE to R.id.scenePause, Scene.OUTRO to R.id.sceneOutro,
         ).forEach { (scene, id) ->
             val button = findViewById<Button>(id)
             sceneButtons[scene] = button

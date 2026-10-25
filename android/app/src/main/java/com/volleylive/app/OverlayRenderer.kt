@@ -3,20 +3,23 @@ package com.volleylive.app
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import kotlin.math.roundToInt
 
 /**
  * Dessine ce qui est incrusté par-dessus la vidéo, dans un bitmap transparent de la taille du flux :
  * - en match : le tableau de score ECVB, dessiné entièrement (net à toutes les résolutions) :
  *   noms, sets gagnés, points, set en cours et compétition, puis le détail des sets terminés ;
- * - sur l'écran de fin : titre, équipes, sets gagnés, détail des sets, partenaires et compétition,
- *   aux emplacements prévus par le visuel de la vidéo de fin ;
- * - les logos des partenaires (écran de fin, et un à la fois pendant le match si l'option est activée).
+ * - sur l'écran de fin et l'écran de pause entre deux sets : titre, équipes, sets gagnés, détail
+ *   des sets, partenaires et compétition, aux emplacements prévus par le visuel de la vidéo de fin ;
+ * - les logos des partenaires : sur des tuiles blanches (écrans de fin et de pause), et un à la fois
+ *   pendant le match, posé directement sur la vidéo, avec un glissement pour passer au suivant.
  *
  * Toutes les coordonnées sont exprimées dans le repère 1920x1080 du design, puis mises à l'échelle :
  * le rendu est identique en 720p et en 1080p.
@@ -25,7 +28,7 @@ class OverlayRenderer(
     context: Context,
     private val width: Int,
     private val height: Int,
-    /** Logos des partenaires (écran de fin, et rotation pendant le match si activée). */
+    /** Logos des partenaires, sans fond blanc (écran de fin, et rotation pendant le match si activée). */
     private val partners: List<Bitmap> = emptyList(),
 ) {
 
@@ -49,12 +52,42 @@ class OverlayRenderer(
         textAlign = Paint.Align.CENTER
     }
 
+    private val logoPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    /** Ombre douce de chaque logo (masque flouté) : le logo reste lisible sur une image claire. */
+    private val shadows: List<Pair<Bitmap, IntArray>?> = partners.map { logo ->
+        runCatching {
+            val offset = IntArray(2)
+            val blur = Paint().apply {
+                maskFilter = BlurMaskFilter(maxOf(2f, maxOf(logo.width, logo.height) * 0.018f), BlurMaskFilter.Blur.NORMAL)
+            }
+            logo.extractAlpha(blur, offset) to offset
+        }.getOrNull()
+    }
+
+    /**
+     * Images de travail réutilisées à tour de rôle (le glissement des logos redessine l'overlay
+     * 30 fois par seconde) : le calque garde la précédente le temps de l'envoyer à la carte graphique.
+     */
+    private val buffers = arrayOfNulls<Bitmap>(3)
+    private var nextBuffer = 0
+
     /** Bitmap entièrement transparent (écran d'intro, overlay masqué). */
-    fun empty(): Bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    fun empty(): Bitmap {
+        val i = nextBuffer
+        nextBuffer = (i + 1) % buffers.size
+        val bitmap = buffers[i] ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { buffers[i] = it }
+        bitmap.eraseColor(Color.TRANSPARENT)
+        return bitmap
+    }
 
     /** Logo partenaire affiché en ce moment pendant le match (change toutes les 8 s), -1 si aucun. */
     fun partnerIndex(s: ScoreState, now: Long): Int =
         if (s.partnersVisible && partners.isNotEmpty()) ((now / PARTNER_ROTATION_MS) % partners.size).toInt() else -1
+
+    /** Vrai pendant le glissement d'un logo au suivant : l'overlay doit être redessiné en continu. */
+    fun partnerSliding(s: ScoreState, now: Long): Boolean =
+        s.partnersVisible && s.overlayVisible && partners.size > 1 && now % PARTNER_ROTATION_MS < PARTNER_SLIDE_MS
 
     /**
      * Tableau de score du match, centré en haut (repère 1920x1080) :
@@ -135,10 +168,47 @@ class OverlayRenderer(
             }
         }
 
-        // Partenaires : un logo à la fois, en bas à droite
+        // Partenaires : un logo à la fois, en bas à droite. Au changement, l'ancien glisse vers la
+        // gauche en s'effaçant, puis le suivant arrive de la droite (les deux vont dans le même sens).
         val index = partnerIndex(s, now)
-        if (index >= 0) partnerTile(c, 1920f - 48 - 260f, 1080f - 48 - 150f, 260f, 150f, partners[index])
+        if (index >= 0) {
+            val t = (now % PARTNER_ROTATION_MS).toFloat()
+            if (partners.size > 1 && t < PARTNER_SLIDE_MS) {
+                val out = (t / (PARTNER_SLIDE_MS * 0.45f)).coerceIn(0f, 1f)
+                val inn = ((t - PARTNER_SLIDE_MS * 0.3f) / (PARTNER_SLIDE_MS * 0.7f)).coerceIn(0f, 1f)
+                val previous = (index - 1 + partners.size) % partners.size
+                if (out < 1f) partnerLogo(c, previous, -SLIDE_DX * out * out, 1f - out)
+                if (inn > 0f) {
+                    val e = 1f - (1f - inn) * (1f - inn) * (1f - inn)     // arrivée qui ralentit
+                    partnerLogo(c, index, SLIDE_DX * (1f - e), inn)
+                }
+            } else {
+                partnerLogo(c, index, 0f, 1f)
+            }
+        }
         return bitmap
+    }
+
+    /**
+     * Logo partenaire posé sur la vidéo, sans fond, calé dans le coin en bas à droite, décalé de [dx]
+     * (glissement) avec l'opacité [alpha]. Une ombre douce le détache de l'image.
+     */
+    private fun partnerLogo(c: Canvas, index: Int, dx: Float, alpha: Float) {
+        val logo = partners[index]
+        val scale = minOf(LOGO_MAX_W / logo.width, LOGO_MAX_H / logo.height)
+        val right = 1920f - LOGO_MARGIN + dx
+        val bottom = 1080f - LOGO_MARGIN
+        val left = right - logo.width * scale
+        val top = bottom - logo.height * scale
+        val a = (alpha * 255).roundToInt().coerceIn(0, 255)
+        shadows[index]?.let { (shadow, offset) ->
+            shadowPaint.color = Color.argb((a * 0.5f).roundToInt(), 0, 0, 0)
+            val sx = left + offset[0] * scale
+            val sy = top + offset[1] * scale + 3f
+            c.drawBitmap(shadow, null, RectF(sx, sy, sx + shadow.width * scale, sy + shadow.height * scale), shadowPaint)
+        }
+        logoPaint.alpha = a
+        c.drawBitmap(logo, null, RectF(left, top, right, bottom), logoPaint)
     }
 
     /**
@@ -167,12 +237,24 @@ class OverlayRenderer(
      * logos des partenaires dans le bandeau sombre du bas, compétition dans la case du bas.
      * Les fonds sombres (case du score, bandeaux) font partie de la vidéo.
      */
-    fun renderOutro(s: ScoreState): Bitmap {
+    fun renderOutro(s: ScoreState): Bitmap = renderSummary(s, "FIN DU MATCH", null)
+
+    /**
+     * Écran de pause entre deux sets : même mise en page que l'écran de fin (titre « PAUSE »),
+     * avec en plus le set qui vient de se terminer et l'annonce de la reprise.
+     */
+    fun renderPause(s: ScoreState): Bitmap {
+        val done = s.setScores.size
+        val info = if (done > 0) "FIN DU ${done}${if (done == 1) "ER" else "E"} SET  ·  LE MATCH REPREND DANS QUELQUES INSTANTS"
+        else "LE MATCH REPREND DANS QUELQUES INSTANTS"
+        return renderSummary(s, "PAUSE", info)
+    }
+
+    private fun renderSummary(s: ScoreState, title: String, info: String?): Bitmap {
         val bitmap = empty()
         val c = designCanvas(bitmap)
 
         // Étiquette blanche du titre
-        val title = "FIN DU MATCH"
         text.typeface = bebas
         text.textSize = 72f
         val tw = (text.measureText(title) + 70f).coerceIn(300f, 1400f)
@@ -195,6 +277,16 @@ class OverlayRenderer(
         if (sets.isNotEmpty()) {
             val detail = sets.joinToString("    ") { "${it.first}-${it.second}" }
             drawText(c, detail, 960f, 591f, 32f, josefinLight, maxWidth = 1500f)
+        }
+
+        // Pause : set terminé et reprise, sur un bandeau sombre au-dessus du terrain
+        if (info != null) {
+            text.typeface = josefin
+            text.textSize = 28f
+            val iw = minOf(text.measureText(info), 1500f) + 80f
+            fill.color = INFO_BAND
+            c.drawRoundRect(960 - iw / 2, 660f, 960 + iw / 2, 716f, 28f, 28f, fill)
+            drawText(c, info, 960f, 698f, 28f, josefin, maxWidth = 1500f)
         }
 
         // Partenaires : jusqu'à 8 logos centrés dans le bandeau sombre
@@ -306,6 +398,15 @@ class OverlayRenderer(
         private val HOME_COLOR = Color.rgb(229, 21, 17)
         private val AWAY_COLOR = AWAY_NAME              // même gris que la case des visiteurs en match
         private val PARTNER_LABEL = Color.rgb(213, 213, 216)
+        private val INFO_BAND = Color.argb(200, 12, 12, 14)
+
+        /** Logo partenaire pendant le match : taille maximale et marge au coin bas droit. */
+        private const val LOGO_MAX_W = 300f
+        private const val LOGO_MAX_H = 130f
+        private const val LOGO_MARGIN = 48f
+        /** Glissement d'un logo au suivant : durée et distance parcourue. */
+        const val PARTNER_SLIDE_MS = 800L
+        private const val SLIDE_DX = 90f
         const val PARTNER_ROTATION_MS = 8_000L
     }
 }

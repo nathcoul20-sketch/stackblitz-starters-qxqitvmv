@@ -70,7 +70,7 @@ object ScoreManager {
                 commit(s.copy(partnersVisible = !s.partnersVisible))
                 return true
             }
-            "scene_intro", "scene_match", "scene_outro" -> {
+            "scene_intro", "scene_match", "scene_pause", "scene_outro" -> {
                 val scene = Scene.valueOf(action.removePrefix("scene_").uppercase())
                 if (scene != s.scene) commit(s.copy(scene = scene))
                 return true

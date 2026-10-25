@@ -12,13 +12,14 @@ import com.pedro.library.view.GlInterface
 
 /**
  * Gère ce qui est affiché par-dessus la caméra, sous forme de 3 calques OpenGL (du bas vers le haut) :
- *  1. vidéo plein écran (intro / écran de fin), invisible pendant le match. Chaque vidéo joue son
- *     animation d'entrée une fois, puis boucle sur sa seconde moitié (voir [LOOP_FROM_MS]) ;
- *  2. overlay : tableau de score en match, résultat sur l'écran de fin ;
+ *  1. vidéo plein écran (intro / pause entre deux sets / écran de fin), invisible pendant le match.
+ *     Chaque vidéo joue son animation d'entrée une fois, puis boucle sur sa seconde moitié
+ *     (voir [LOOP_FROM_MS]). La pause reprend la vidéo de l'écran de fin ;
+ *  2. overlay : tableau de score en match, résumé du match sur les écrans de pause et de fin ;
  *  3. transition ECVB (vidéo avec transparence), jouée à chaque changement de scène.
  *
  * Le changement de scène a lieu au milieu de la transition, quand elle couvre tout l'écran.
- * Gère aussi le son : musique (micro coupé) en intro / fin, micro en match, avec des fondus
+ * Gère aussi le son : musique (micro coupé) en intro / pause / fin, micro en match, avec des fondus
  * pendant les transitions (pas de bruitage).
  * Toutes les méthodes publiques s'appellent depuis le thread principal.
  */
@@ -48,15 +49,27 @@ class SceneController(
         main.post(callback)
     }
 
-    /** Pendant le match : redessine le tableau quand le logo partenaire affiché doit changer. */
+    /**
+     * Pendant le match : redessine le tableau quand le logo partenaire change, puis image par image
+     * pendant son glissement (environ 30 images/s, moins d'une seconde toutes les 8 s).
+     */
     private val ticker = Handler(Looper.getMainLooper())
     private var shownPartner = -1
+    private var sliding = false
     private val tick = object : Runnable {
         override fun run() {
-            if (shownScene == Scene.MATCH &&
-                renderer.partnerIndex(state, SystemClock.elapsedRealtime()) != shownPartner
-            ) refreshOverlay()
-            ticker.postDelayed(this, 500L)
+            var delay = IDLE_TICK_MS
+            if (shownScene == Scene.MATCH) {
+                val now = SystemClock.elapsedRealtime()
+                val slide = renderer.partnerSliding(state, now)
+                // Dernière image du glissement comprise (logo bien en place)
+                if (slide || sliding || renderer.partnerIndex(state, now) != shownPartner) refreshOverlay()
+                sliding = slide
+                // Réveil pile au prochain changement de logo, pour ne pas rater le début du glissement
+                val untilNext = OverlayRenderer.PARTNER_ROTATION_MS - now % OverlayRenderer.PARTNER_ROTATION_MS
+                delay = if (slide) FRAME_MS else minOf(IDLE_TICK_MS, untilNext).coerceAtLeast(1L)
+            }
+            ticker.postDelayed(this, delay)
         }
     }
 
@@ -184,7 +197,7 @@ class SceneController(
         if (fadeInMs != null) audio.fadeInFor(fadeInMs, music) else audio.crossfade(music)
         when (scene) {
             Scene.INTRO -> playVideo(R.raw.intro)
-            Scene.OUTRO -> playVideo(R.raw.outro)
+            Scene.PAUSE, Scene.OUTRO -> playVideo(R.raw.outro)
             Scene.MATCH -> {
                 videoFilter?.alpha = 0f
                 videoPlayer?.release()
@@ -201,6 +214,7 @@ class SceneController(
         overlayFilter?.setImage(
             when (shownScene) {
                 Scene.MATCH -> renderer.renderScoreboard(state, now)
+                Scene.PAUSE -> renderer.renderPause(state)
                 Scene.OUTRO -> renderer.renderOutro(state)
                 else -> renderer.empty()
             }
@@ -211,7 +225,7 @@ class SceneController(
     private fun onVideoSurfaceReady() {
         when (shownScene) {
             Scene.INTRO -> playVideo(R.raw.intro)
-            Scene.OUTRO -> playVideo(R.raw.outro)
+            Scene.PAUSE, Scene.OUTRO -> playVideo(R.raw.outro)
             else -> {}
         }
     }
@@ -259,5 +273,8 @@ class SceneController(
         private const val DEFAULT_TRANSITION_MS = 1_700L
         /** Reprise des vidéos d'intro et de fin (image clé placée à 4,5 s à l'encodage). */
         private const val LOOP_FROM_MS = 4_500L
+        /** Vérification du logo partenaire hors glissement, et cadence pendant le glissement. */
+        private const val IDLE_TICK_MS = 500L
+        private const val FRAME_MS = 33L
     }
 }

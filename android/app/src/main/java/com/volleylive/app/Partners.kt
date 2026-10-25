@@ -11,7 +11,8 @@ import java.nio.ByteBuffer
 /**
  * Logos des partenaires du club, copiés dans l'appli (dossier privé « partners »).
  * Affichés sur l'écran de fin (« Merci à nos partenaires ») et, si l'option est activée,
- * un à la fois en bas à droite pendant le match.
+ * un à la fois en bas à droite pendant le match. Pour la vidéo, leur fond blanc est retiré
+ * ([LogoCutout]) ; le résultat est gardé dans un dossier cache à côté des originaux.
  */
 object Partners {
 
@@ -19,24 +20,42 @@ object Partners {
 
     private fun dir(context: Context) = File(context.filesDir, "partners").apply { mkdirs() }
 
+    /** Logos détourés. Changer [CUT_VERSION] (réglage du détourage modifié) les refait tous. */
+    private const val CUT_VERSION = 1
+    private fun cutDir(filesDir: File) = File(filesDir, "partners_cut_v$CUT_VERSION").apply { mkdirs() }
+
     /** Fichiers des logos, dans l'ordre d'ajout. */
     fun files(context: Context): List<File> =
         dir(context).listFiles { f -> f.name.endsWith(".png") }?.sortedBy { it.name } ?: emptyList()
 
+    /** Logos prêts pour la vidéo, sans leur fond blanc (détourés une fois, puis lus dans le cache). */
     fun logos(context: Context): List<Bitmap> =
-        files(context).mapNotNull { runCatching { BitmapFactory.decodeFile(it.path) }.getOrNull() }
+        files(context).mapNotNull { file -> runCatching { cutLogo(context.filesDir, file) }.getOrNull() }
+
+    private fun cutLogo(filesDir: File, file: File): Bitmap? {
+        val cached = File(cutDir(filesDir), file.name)
+        if (cached.exists()) BitmapFactory.decodeFile(cached.path)?.let { return it }
+        val original = BitmapFactory.decodeFile(file.path) ?: return null
+        val cut = runCatching { LogoCutout.removeWhiteBackground(original) }.getOrDefault(original)
+        runCatching { cached.outputStream().use { cut.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+        return cut
+    }
 
     /** Ajoute un logo choisi dans la galerie (réduit à 600 px de côté). Renvoie false si l'image est illisible. */
     fun add(context: Context, uri: Uri): Boolean {
         val bmp = loadScaledImage(context, uri, 600) ?: return false
         val file = File(dir(context), "partenaire_${System.currentTimeMillis()}.png")
-        return runCatching {
+        val saved = runCatching {
             file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }.isSuccess
+        // Détourage tout de suite : l'ouverture de la caméra n'a plus qu'à lire le résultat
+        if (saved) runCatching { cutLogo(context.filesDir, file) }
+        return saved
     }
 
     fun remove(file: File) {
         file.delete()
+        file.parentFile?.parentFile?.let { File(cutDir(it), file.name).delete() }
     }
 
     /**

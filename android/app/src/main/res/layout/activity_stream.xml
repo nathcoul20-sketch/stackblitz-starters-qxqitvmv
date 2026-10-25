@@ -118,7 +118,7 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Choix de la scène diffusée, à gauche -->
+    <!-- Choix de la scène diffusée, à gauche : Intro, Match, Pause, Fin -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
@@ -138,6 +138,13 @@
             style="@style/ControlButton"
             android:layout_width="120dp"
             android:text="Match" />
+
+        <!-- Pause entre deux sets : musique et résumé du match -->
+        <Button
+            android:id="@+id/scenePause"
+            style="@style/ControlButton"
+            android:layout_width="120dp"
+            android:text="Pause" />
 
         <Button
             android:id="@+id/sceneOutro"

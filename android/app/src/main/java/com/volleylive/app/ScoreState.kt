@@ -6,7 +6,8 @@ import org.json.JSONObject
 enum class Team { HOME, AWAY }
 
 /** Ce qui est diffusé : écran d'attente, match (caméra + score), ou écran de fin. */
-enum class Scene { INTRO, MATCH, OUTRO }
+/** Écran diffusé. PAUSE : entre deux sets (même visuel que l'écran de fin, titre « PAUSE »). */
+enum class Scene { INTRO, MATCH, PAUSE, OUTRO }
 
 /** État complet du match, immuable : chaque action produit un nouvel état. */
 data class ScoreState(
