@@ -25,7 +25,7 @@
         android:textSize="14sp"
         android:textStyle="bold" />
 
-    <!-- Batterie et température du téléphone (pas dans le live), petit, en haut à droite -->
+    <!-- Spectateurs Twitch, batterie et température du téléphone (pas dans le live), petit, en haut à droite -->
     <LinearLayout
         android:id="@+id/deviceInfo"
         android:layout_width="wrap_content"
@@ -39,6 +39,26 @@
         android:paddingHorizontal="8dp"
         android:paddingVertical="3dp"
         android:visibility="invisible">
+
+        <!-- Spectateurs : seulement si le compte Twitch est connecté et le live en cours -->
+        <ImageView
+            android:id="@+id/viewersIcon"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:contentDescription="Spectateurs"
+            android:src="@drawable/ic_eye"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/viewersText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:layout_marginEnd="8dp"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
 
         <FrameLayout
             android:layout_width="18dp"

@@ -63,7 +63,7 @@ class OverlayRenderer(
      *    avec un petit ballon devant le nom de l'équipe au service ;
      *  - onglet du bas : le score de chaque set terminé, il s'élargit à chaque nouveau set.
      */
-    fun renderScoreboard(s: ScoreState, now: Long, viewers: Int = -1): Bitmap {
+    fun renderScoreboard(s: ScoreState, now: Long): Bitmap {
         val bitmap = empty()
         if (!s.overlayVisible) return bitmap
         val c = designCanvas(bitmap)
@@ -135,44 +135,10 @@ class OverlayRenderer(
             }
         }
 
-        // Spectateurs Twitch, en haut à droite
-        if (viewers >= 0 && s.viewersVisible) viewersBadge(c, viewers)
-
         // Partenaires : un logo à la fois, en bas à droite
         val index = partnerIndex(s, now)
         if (index >= 0) partnerTile(c, 1920f - 48 - 260f, 1080f - 48 - 150f, 260f, 150f, partners[index])
         return bitmap
-    }
-
-    /** Petit cartouche « œil + nombre » aligné sur le haut du tableau, au bord droit de l'image. */
-    private fun viewersBadge(c: Canvas, viewers: Int) {
-        val value = String.format(java.util.Locale.FRANCE, "%,d", viewers).replace('\u202F', ' ').replace('\u00A0', ' ')
-        text.typeface = bebas
-        text.textSize = 34f
-        val tw = text.measureText(value)
-        val h = 44f
-        val y = ROW_Y
-        val x1 = 1920f - 34f
-        val w = 18f + 30f + 10f + tw + 18f
-        val x0 = x1 - w
-        polygon(c, TAB, x0, y, x1, y, x1, y + h, x0 + 12f, y + h, x0, y + h - 12f)
-        rect(c, x0, y, 5f, h - 12f, HOME_NAME)                    // liseré rouge du live
-        // Œil
-        val cx = x0 + 18f + 15f
-        val cy = y + h / 2
-        val eye = Path().apply {
-            moveTo(cx - 15f, cy)
-            quadTo(cx, cy - 15f, cx + 15f, cy)
-            quadTo(cx, cy + 15f, cx - 15f, cy)
-            close()
-        }
-        fill.color = Color.WHITE
-        c.drawPath(eye, fill)
-        fill.color = TAB
-        c.drawCircle(cx, cy, 5.5f, fill)
-        fill.color = Color.WHITE
-        c.drawCircle(cx, cy, 2.6f, fill)
-        drawText(c, value, x0 + 18f + 30f + 10f, y + 34f, 34f, bebas, align = Paint.Align.LEFT)
     }
 
     /**

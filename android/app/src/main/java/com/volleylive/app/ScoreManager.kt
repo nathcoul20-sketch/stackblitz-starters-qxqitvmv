@@ -70,10 +70,6 @@ object ScoreManager {
                 commit(s.copy(partnersVisible = !s.partnersVisible))
                 return true
             }
-            "toggle_viewers" -> {
-                commit(s.copy(viewersVisible = !s.viewersVisible))
-                return true
-            }
             "scene_intro", "scene_match", "scene_outro" -> {
                 val scene = Scene.valueOf(action.removePrefix("scene_").uppercase())
                 if (scene != s.scene) commit(s.copy(scene = scene))
@@ -87,15 +83,12 @@ object ScoreManager {
                 scene = s.scene,
                 audioMuted = s.audioMuted,
                 partnersVisible = s.partnersVisible,
-                viewersVisible = s.viewersVisible,
             )
             "undo" -> {
                 // On garde la scène actuelle : annuler un point ne doit pas changer d'écran
                 val previous = history.removeLastOrNull()
-                    ?.copy(
-                        scene = s.scene, audioMuted = s.audioMuted,
-                        partnersVisible = s.partnersVisible, viewersVisible = s.viewersVisible,
-                    ) ?: return false
+                    ?.copy(scene = s.scene, audioMuted = s.audioMuted, partnersVisible = s.partnersVisible)
+                    ?: return false
                 state = previous
                 version++
                 onCommit?.invoke(previous)

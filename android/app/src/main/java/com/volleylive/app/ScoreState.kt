@@ -25,8 +25,6 @@ data class ScoreState(
     val audioMuted: Boolean = false,
     /** Logos des partenaires affichés pendant le match (un à la fois, en bas à droite). */
     val partnersVisible: Boolean = false,
-    /** Nombre de spectateurs Twitch affiché sur la scène Match. */
-    val viewersVisible: Boolean = true,
     /** Scores des sets terminés, dans l'ordre (domicile, extérieur). */
     val setScores: List<Pair<Int, Int>> = emptyList(),
 ) {
@@ -56,7 +54,6 @@ data class ScoreState(
         put("scene", scene.name.lowercase())
         put("audioMuted", audioMuted)
         put("partnersVisible", partnersVisible)
-        put("viewersVisible", viewersVisible)
         put("setScores", JSONArray(setScores.map { JSONArray(listOf(it.first, it.second)) }))
     }
 }

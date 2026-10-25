@@ -124,7 +124,6 @@
 </div>
 
 <button id="partnersBtn" data-a="toggle_partners" class="mute" style="display:none">Partenaires pendant le match</button>
-<button id="viewersBtn" data-a="toggle_viewers" class="mute" style="display:none">Spectateurs dans le live</button>
 
 <div class="teams">
   <div class="team home" id="home">
@@ -232,12 +231,6 @@
     $('muteBtn').title = s.audioMuted ? 'Son du live coupé : toucher pour le remettre' : 'Couper le son du live';
     $('muteBtn').setAttribute('aria-label', $('muteBtn').title);
     renderDevice(s.device || {}, s.twitch || {});
-    var tw = s.twitch || {};
-    $('viewersBtn').style.display = tw.viewersAvailable ? '' : 'none';
-    $('viewersBtn').textContent = s.viewersVisible
-      ? 'Spectateurs dans le live : affichés'
-      : 'Spectateurs dans le live : masqués';
-    $('viewersBtn').classList.toggle('shown', !!s.viewersVisible);
     $('partnersBtn').style.display = s.partnerCount > 0 ? '' : 'none';
     $('partnersBtn').textContent = s.partnersVisible
       ? 'Partenaires pendant le match : affichés'

@@ -51,12 +51,10 @@ class SceneController(
     /** Pendant le match : redessine le tableau quand le logo partenaire affiché doit changer. */
     private val ticker = Handler(Looper.getMainLooper())
     private var shownPartner = -1
-    private var shownViewers = -1
     private val tick = object : Runnable {
         override fun run() {
-            if (shownScene == Scene.MATCH && (
-                    renderer.partnerIndex(state, SystemClock.elapsedRealtime()) != shownPartner ||
-                        TwitchLive.viewers != shownViewers)
+            if (shownScene == Scene.MATCH &&
+                renderer.partnerIndex(state, SystemClock.elapsedRealtime()) != shownPartner
             ) refreshOverlay()
             ticker.postDelayed(this, 500L)
         }
@@ -200,10 +198,9 @@ class SceneController(
     private fun refreshOverlay() {
         val now = SystemClock.elapsedRealtime()
         shownPartner = renderer.partnerIndex(state, now)
-        shownViewers = TwitchLive.viewers
         overlayFilter?.setImage(
             when (shownScene) {
-                Scene.MATCH -> renderer.renderScoreboard(state, now, shownViewers)
+                Scene.MATCH -> renderer.renderScoreboard(state, now)
                 Scene.OUTRO -> renderer.renderOutro(state)
                 else -> renderer.empty()
             }

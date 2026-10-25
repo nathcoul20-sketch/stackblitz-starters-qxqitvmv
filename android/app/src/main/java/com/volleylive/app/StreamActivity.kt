@@ -74,8 +74,19 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private var weakCount = 0
     private var partners: List<android.graphics.Bitmap> = emptyList()
 
-    // Batterie et température (petit indicateur en haut à droite, alertes une fois par seuil)
+    // Spectateurs, batterie et température (petit indicateur en haut à droite, visible seulement sur ce
+    // téléphone, jamais dans le live ; alertes batterie/chauffe une fois par seuil)
     private lateinit var deviceInfo: View
+    private lateinit var viewersIcon: ImageView
+    private lateinit var viewersText: TextView
+    private var shownViewers = Int.MIN_VALUE
+    private val viewersHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val viewersTick = object : Runnable {
+        override fun run() {
+            updateViewers()
+            viewersHandler.postDelayed(this, 5_000L)
+        }
+    }
     private lateinit var batteryIcon: ImageView
     private lateinit var batteryBolt: ImageView
     private lateinit var batteryText: TextView
@@ -194,6 +205,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         loadingHandler.postDelayed({ hideLoading() }, LOADING_MAX_MS) // sécurité
 
         deviceInfo = findViewById(R.id.deviceInfo)
+        viewersIcon = findViewById(R.id.viewersIcon)
+        viewersText = findViewById(R.id.viewersText)
         batteryIcon = findViewById(R.id.batteryIcon)
         batteryBolt = findViewById(R.id.batteryBolt)
         batteryText = findViewById(R.id.batteryText)
@@ -218,7 +231,8 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
         })
 
         startRemoteServer()
-        TwitchLive.start(prefs) // spectateurs + chat pour la télécommande
+        TwitchLive.start(prefs) // spectateurs (ce téléphone + télécommande) + chat pour la télécommande
+        viewersHandler.post(viewersTick)
         ScoreManager.addListener(scoreListener)
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.let { onBattery(it) }
     }
@@ -240,6 +254,7 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
 
     override fun onDestroy() {
         loadingHandler.removeCallbacksAndMessages(null)
+        viewersHandler.removeCallbacksAndMessages(null)
         TwitchLive.stop()
         runCatching { unregisterReceiver(batteryReceiver) }
         DeviceStatus.live = false
@@ -439,6 +454,18 @@ class StreamActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callba
     private fun updateQualityUi() {
         qualityButton.text = "Qualité : ${quality.label}"
         DeviceStatus.quality = quality.label
+    }
+
+    // ---- Spectateurs (Twitch, relevés toutes les 30 s) ----
+
+    private fun updateViewers() {
+        val n = TwitchLive.viewers
+        if (n == shownViewers) return
+        shownViewers = n
+        val show = n >= 0
+        viewersIcon.visibility = if (show) View.VISIBLE else View.GONE
+        viewersText.visibility = if (show) View.VISIBLE else View.GONE
+        if (show) viewersText.text = String.format(Locale.FRANCE, "%,d", n)
     }
 
     // ---- Batterie et chauffe ----
