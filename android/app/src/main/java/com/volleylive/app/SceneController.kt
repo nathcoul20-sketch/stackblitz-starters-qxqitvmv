@@ -1,7 +1,10 @@
 package com.volleylive.app
 
 import android.content.Context
+import android.media.MediaCodecList
+import android.media.MediaFormat
 import android.media.MediaPlayer
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -16,11 +19,13 @@ import com.pedro.library.view.GlInterface
  *     Chaque vidéo joue son animation d'entrée une fois, puis boucle sur sa seconde moitié
  *     (voir [LOOP_FROM_MS]). La pause reprend la vidéo de l'écran de fin ;
  *  2. overlay : tableau de score en match, résumé du match sur les écrans de pause et de fin ;
- *  3. transition ECVB (vidéo avec transparence), jouée à chaque changement de scène.
+ *  3. transitions (vidéos avec transparence), jouées à chaque changement de scène : la transition
+ *     du club (10 s, avec sa bande-son) d'Intro vers Match, la transition ECVB courte pour tous
+ *     les autres changements.
  *
- * Le changement de scène a lieu au milieu de la transition, quand elle couvre tout l'écran.
+ * Le changement de scène a lieu pendant la transition, quand elle couvre tout l'écran.
  * Gère aussi le son : musique (micro coupé) en intro / pause / fin, micro en match, avec des fondus
- * pendant les transitions (pas de bruitage).
+ * pendant les transitions. Seule la transition Intro → Match a un son (mixé dans le live).
  * Toutes les méthodes publiques s'appellent depuis le thread principal.
  */
 class SceneController(
@@ -75,11 +80,47 @@ class SceneController(
 
     private var videoFilter: SurfaceFilterRender? = null
     private var overlayFilter: ImageObjectFilterRender? = null
-    private var transitionFilter: AlphaVideoFilterRender? = null
     private var videoPlayer: MediaPlayer? = null
-    private var transitionPlayer: MediaPlayer? = null
-    private var transitionReady = false
-    private var transitionDurationMs = DEFAULT_TRANSITION_MS
+
+    /** Une vidéo de transition : son calque (avec transparence) et son lecteur, préparé d'avance. */
+    private class Transition(
+        val resId: Int,
+        /** Changement d'écran, quand la vidéo couvre tout l'écran. */
+        val cutMs: Long,
+        /** Le son du nouvel écran remonte à partir de cet instant ; null : dès le changement d'écran. */
+        val soundInMs: Long?,
+        /** Sa bande-son est envoyée dans le live (mixée par [AudioMixer]). */
+        val withSound: Boolean,
+    ) {
+        var filter: AlphaVideoFilterRender? = null
+        var surface: Surface? = null
+        var player: MediaPlayer? = null
+        var ready = false
+        var durationMs = DEFAULT_TRANSITION_MS
+
+        /** Libère le lecteur (le calque reste en place, invisible). */
+        fun unload() {
+            player?.release()
+            player = null
+            ready = false
+        }
+    }
+
+    /** Transition ECVB courte : tous les changements d'écran… */
+    private val quick = Transition(R.raw.transition, cutMs = QUICK_CUT_MS, soundInMs = null, withSound = false)
+    /**
+     * …sauf Intro → Match : transition du club (couvre l'écran de 1 s à 8,4 s, puis s'ouvre sur le
+     * match ; le micro remonte pendant l'ouverture). Version allégée si le téléphone ne sait pas lire
+     * la vidéo pleine définition. Préparée seulement quand l'Intro est affichée.
+     */
+    private val stinger = Transition(
+        if (canDecodeFullStinger()) R.raw.stinger else R.raw.stinger_low,
+        cutMs = STINGER_CUT_MS, soundInMs = STINGER_SOUND_IN_MS, withSound = true,
+    )
+    private val transitions = listOf(quick, stinger)
+    private var current: Transition? = null
+    /** Son du nouvel écran encore coupé (transition qui le garde jusqu'à son ouverture). */
+    private var soundPending = false
 
     private var state: ScoreState = ScoreManager.state
     private var shownScene: Scene? = null
@@ -90,16 +131,21 @@ class SceneController(
         detach()
         val video = SurfaceFilterRender { onVideoSurfaceReady() }.apply { alpha = 0f }
         val overlay = ImageObjectFilterRender()
-        val transition = AlphaVideoFilterRender { onTransitionSurfaceReady(it) }.apply { alpha = 0f }
+        for (t in transitions) {
+            var layer: AlphaVideoFilterRender? = null
+            // Surface d'un ancien calque (aperçu redémarré entre-temps) : ignorée
+            layer = AlphaVideoFilterRender { surface -> if (t.filter === layer) onTransitionSurfaceReady(t, surface) }
+                .apply { alpha = 0f }
+            t.filter = layer
+        }
         gl.clearFilters()
-        listOf(video, overlay, transition).forEach {
+        (listOf(video, overlay) + transitions.mapNotNull { it.filter }).forEach {
             gl.addFilter(it)
             it.setScale(100f, 100f)
             it.setPosition(0f, 0f)
         }
         videoFilter = video
         overlayFilter = overlay
-        transitionFilter = transition
         showScene(state.scene)
         ticker.removeCallbacksAndMessages(null)
         ticker.post(tick)
@@ -111,12 +157,16 @@ class SceneController(
         transitioning = false
         videoPlayer?.release()
         videoPlayer = null
-        transitionPlayer?.release()
-        transitionPlayer = null
-        transitionReady = false
+        for (t in transitions) {
+            t.unload()
+            t.filter = null
+            t.surface = null
+        }
+        current = null
+        soundPending = false
+        audio.stopEffect()
         videoFilter = null
         overlayFilter = null
-        transitionFilter = null
         shownScene = null
     }
 
@@ -131,57 +181,94 @@ class SceneController(
 
     private fun startTransition() {
         transitioning = true
-        val player = transitionPlayer
-        val filter = transitionFilter
-        if (player == null || filter == null || !transitionReady) {
+        // Intro → Match : transition du club (si elle est prête), sinon la transition courte
+        val wanted = if (shownScene == Scene.INTRO && state.scene == Scene.MATCH) stinger else quick
+        val t = if (wanted.ready) wanted else quick
+        val player = t.player
+        val filter = t.filter
+        if (player == null || filter == null || !t.ready) {
             // Transition indisponible : on change de scène directement
             finishTransition(cut = true)
             return
         }
+        current = t
         player.seekTo(0)
         player.start()
+        if (t.withSound) audio.playEffect()
         // Le calque n'est rendu visible qu'après quelques images : les premières sont transparentes
         // et cela évite d'afficher une image vide le temps que la vidéo démarre.
         main.postDelayed({ filter.alpha = 1f }, SHOW_DELAY_MS)
         // Son : celui en cours s'éteint doucement jusqu'au changement d'écran, puis le nouveau remonte
-        // progressivement pendant que les volets s'ouvrent
-        audio.fadeOutFor(CUT_MS)
-        val fadeIn = (transitionDurationMs - CUT_MS).coerceAtLeast(500L)
-        main.postDelayed({ showScene(state.scene, fadeIn) }, CUT_MS)
+        // progressivement : pendant que les volets s'ouvrent (transition courte), ou seulement quand la
+        // transition du club s'ouvre sur le match (sa bande-son occupe le live jusque-là)
+        audio.fadeOutFor(t.cutMs)
+        val soundIn = t.soundInMs
+        if (soundIn == null) {
+            val fadeIn = (t.durationMs - t.cutMs).coerceAtLeast(500L)
+            main.postDelayed({ showScene(state.scene, fadeIn) }, t.cutMs)
+        } else {
+            main.postDelayed({
+                soundPending = true
+                showScene(state.scene, holdSound = true)
+            }, t.cutMs)
+            main.postDelayed({ releaseSound((t.durationMs - soundIn).coerceAtLeast(500L)) }, soundIn)
+        }
         // Sécurité si la fin de la vidéo n'est jamais signalée
-        main.postDelayed({ finishTransition(cut = false) }, TIMEOUT_MS)
+        main.postDelayed({ finishTransition(cut = false) }, t.durationMs + TIMEOUT_MARGIN_MS)
+    }
+
+    /** Le son du nouvel écran remonte en [fadeMs] (il était gardé coupé pendant la transition). */
+    private fun releaseSound(fadeMs: Long) {
+        if (!soundPending) return
+        soundPending = false
+        audio.fadeInFor(fadeMs, shownScene != Scene.MATCH)
     }
 
     private fun finishTransition(cut: Boolean) {
         if (!transitioning) return
         main.removeCallbacksAndMessages(null)
-        if (cut || shownScene != state.scene) showScene(state.scene)
-        transitionFilter?.alpha = 0f
+        val finished = current
+        current = null
+        if (cut) {
+            // Vidéo interrompue (ou indisponible) : sa bande-son s'arrête aussi
+            audio.stopEffect()
+            soundPending = false
+            showScene(state.scene)
+        } else {
+            releaseSound(SOUND_RESCUE_MS)
+        }
+        for (t in transitions) t.filter?.alpha = 0f
+        // La transition du club ne resservira qu'au prochain passage par l'Intro : lecteur libéré
+        if (finished === stinger) stinger.unload()
         transitioning = false
         // La scène a encore changé pendant la transition : on enchaîne
         if (state.scene != shownScene) startTransition()
     }
 
-    private fun onTransitionSurfaceReady(surface: Surface) {
-        transitionPlayer?.release()
-        transitionPlayer = null
-        transitionReady = false
-        // Surface d'un ancien calque (aperçu redémarré entre-temps) : ignorée
-        if (!surface.isValid || transitionFilter == null) return
-        transitionPlayer = MediaPlayer().apply {
-            context.resources.openRawResourceFd(R.raw.transition).use { afd ->
+    private fun onTransitionSurfaceReady(t: Transition, surface: Surface) {
+        t.unload()
+        t.surface = surface
+        if (t === quick || shownScene == Scene.INTRO) prepareTransition(t)
+    }
+
+    /** Prépare le lecteur d'une transition sur son calque (une fois la surface du calque créée). */
+    private fun prepareTransition(t: Transition) {
+        val surface = t.surface ?: return
+        if (t.player != null || !surface.isValid) return
+        t.player = MediaPlayer().apply {
+            context.resources.openRawResourceFd(t.resId).use { afd ->
                 setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }
             setSurface(surface)
             setVolume(0f, 0f)
             setOnPreparedListener {
-                transitionReady = true
-                if (it.duration > 0) transitionDurationMs = it.duration.toLong()
+                t.ready = true
+                if (it.duration > 0) t.durationMs = it.duration.toLong()
             }
-            setOnCompletionListener { finishTransition(cut = false) }
+            setOnCompletionListener { if (current === t) finishTransition(cut = false) }
             setOnErrorListener { _, _, _ ->
-                transitionReady = false
-                finishTransition(cut = true)
+                t.ready = false
+                if (current === t) finishTransition(cut = true)
                 true
             }
             prepareAsync()
@@ -190,11 +277,20 @@ class SceneController(
 
     // ---- Scènes ----
 
-    /** Affiche [scene] ; avec [fadeInMs], son son remonte progressivement (fin de transition). */
-    private fun showScene(scene: Scene, fadeInMs: Long? = null) {
+    /**
+     * Affiche [scene] ; avec [fadeInMs], son son remonte progressivement (fin de transition) ;
+     * avec [holdSound], il reste coupé (remonté plus tard par [releaseSound]).
+     */
+    private fun showScene(scene: Scene, fadeInMs: Long? = null, holdSound: Boolean = false) {
         shownScene = scene
         val music = scene != Scene.MATCH
-        if (fadeInMs != null) audio.fadeInFor(fadeInMs, music) else audio.crossfade(music)
+        when {
+            holdSound -> {}
+            fadeInMs != null -> audio.fadeInFor(fadeInMs, music)
+            else -> audio.crossfade(music)
+        }
+        // Sur l'Intro, la transition du club est prête pour le passage au match
+        if (scene == Scene.INTRO) prepareTransition(stinger)
         when (scene) {
             Scene.INTRO -> playVideo(R.raw.intro)
             Scene.PAUSE, Scene.OUTRO -> playVideo(R.raw.outro)
@@ -266,15 +362,37 @@ class SceneController(
     companion object {
         /** Durée avant d'afficher le calque de transition (images transparentes au début). */
         private const val SHOW_DELAY_MS = 80L
-        /** Changement de scène : les volets couvrent tout l'écran entre 0,3 s et 1,1 s. */
-        private const val CUT_MS = 730L
-        private const val TIMEOUT_MS = 3000L
-        /** Durée de la transition ECVB si elle n'est pas encore connue. */
+        /** Transition courte : les volets couvrent tout l'écran entre 0,3 s et 1,1 s. */
+        private const val QUICK_CUT_MS = 730L
+        /** Transition du club : écran couvert de 1 s à 8,4 s, puis ouverture sur le match. */
+        private const val STINGER_CUT_MS = 1_200L
+        private const val STINGER_SOUND_IN_MS = 8_400L
+        /** Sécurité : fin forcée de la transition, après sa durée + cette marge. */
+        private const val TIMEOUT_MARGIN_MS = 1_500L
+        /** Remontée du son si la transition s'est terminée avant de le faire. */
+        private const val SOUND_RESCUE_MS = 800L
+        /** Durée d'une transition tant qu'elle n'est pas connue. */
         private const val DEFAULT_TRANSITION_MS = 1_700L
         /** Reprise des vidéos d'intro et de fin (image clé placée à 4,5 s à l'encodage). */
         private const val LOOP_FROM_MS = 4_500L
         /** Vérification du logo partenaire hors glissement, et cadence pendant le glissement. */
         private const val IDLE_TICK_MS = 500L
         private const val FRAME_MS = 33L
+
+        /**
+         * Le téléphone a-t-il un décodeur vidéo matériel capable de lire la transition du club en
+         * pleine définition (3840 × 1080 : image et transparence côte à côte, 30 images/s) ?
+         */
+        private fun canDecodeFullStinger(): Boolean = runCatching {
+            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+                if (info.isEncoder) return@any false
+                val software = if (Build.VERSION.SDK_INT >= 29) info.isSoftwareOnly
+                else info.name.startsWith("OMX.google.") || info.name.startsWith("c2.android.")
+                if (software) return@any false
+                val type = info.supportedTypes.firstOrNull { it.equals(MediaFormat.MIMETYPE_VIDEO_AVC, ignoreCase = true) }
+                    ?: return@any false
+                info.getCapabilitiesForType(type).videoCapabilities?.areSizeAndRateSupported(3840, 1080, 30.0) == true
+            }
+        }.getOrDefault(false)
     }
 }
