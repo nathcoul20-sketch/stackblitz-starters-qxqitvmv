@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <com.pedro.library.view.OpenGlView
+        android:id="@+id/preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Statut du live -->
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="12dp"
+        android:background="@drawable/chip_bg"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="6dp"
+        android:text="Hors ligne"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <!-- Spectateurs Twitch, batterie et température du téléphone (pas dans le live), petit, en haut à droite -->
+    <LinearLayout
+        android:id="@+id/deviceInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/chip_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="3dp"
+        android:visibility="invisible">
+
+        <!-- Spectateurs : seulement si le compte Twitch est connecté et le live en cours -->
+        <ImageView
+            android:id="@+id/viewersIcon"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:contentDescription="Spectateurs"
+            android:src="@drawable/ic_eye"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/viewersText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:layout_marginEnd="8dp"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <FrameLayout
+            android:layout_width="18dp"
+            android:layout_height="18dp">
+
+            <ImageView
+                android:id="@+id/batteryIcon"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Batterie"
+                android:src="@drawable/ic_battery_body" />
+
+            <ImageView
+                android:id="@+id/batteryBolt"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_battery_bolt"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/batteryText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <FrameLayout
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginStart="8dp">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_thermo_tube" />
+
+            <ImageView
+                android:id="@+id/tempIcon"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Température"
+                android:src="@drawable/ic_thermo_fill" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/tempText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="1dp"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Choix de la scène diffusée, à gauche : Intro, Match, Pause, Fin -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <Button
+            android:id="@+id/sceneIntro"
+            style="@style/ControlButton"
+            android:layout_width="120dp"
+            android:text="Intro" />
+
+        <Button
+            android:id="@+id/sceneMatch"
+            style="@style/ControlButton"
+            android:layout_width="120dp"
+            android:text="Match" />
+
+        <!-- Pause entre deux sets : musique et résumé du match -->
+        <Button
+            android:id="@+id/scenePause"
+            style="@style/ControlButton"
+            android:layout_width="120dp"
+            android:text="Pause" />
+
+        <Button
+            android:id="@+id/sceneOutro"
+            style="@style/ControlButton"
+            android:layout_width="120dp"
+            android:text="Fin" />
+    </LinearLayout>
+
+    <!-- Boutons de contrôle, à droite -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:paddingHorizontal="12dp"
+        android:paddingTop="36dp"
+        android:paddingBottom="64dp">
+
+        <Button
+            android:id="@+id/live"
+            style="@style/ControlButton"
+            app:backgroundTint="#D00A0A"
+            android:text="● LIVE" />
+
+        <Button
+            android:id="@+id/remote"
+            style="@style/ControlButton"
+            android:text="Télécommande" />
+
+        <Button
+            android:id="@+id/scorePanelToggle"
+            style="@style/ControlButton"
+            android:text="Score" />
+
+        <Button
+            android:id="@+id/quality"
+            style="@style/ControlButton"
+            android:text="Qualité : Auto" />
+
+        <Button
+            android:id="@+id/switchCamera"
+            style="@style/ControlButton"
+            android:text="Caméra ⇄" />
+    </LinearLayout>
+
+    <!-- Couper / rétablir le son du live : petit rond en bas à droite -->
+    <ImageButton
+        android:id="@+id/mute"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="12dp"
+        android:background="@drawable/round_bg"
+        android:backgroundTint="#CC333333"
+        android:contentDescription="Couper le son du live"
+        android:padding="10dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_volume_on" />
+
+    <!-- Panneau de score local (secours si pas de télécommande) : compact, tient sur la largeur -->
+    <LinearLayout
+        android:id="@+id/scorePanel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/chip_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="5dp"
+        android:visibility="gone">
+
+        <Button android:id="@+id/homeMinus" style="@style/ScoreButton" android:text="−" />
+        <Button android:id="@+id/homePlus" style="@style/ScoreButton" app:backgroundTint="#D00A0A" android:text="+1" />
+        <Button android:id="@+id/endSet" style="@style/ScoreButton" android:layout_width="wrap_content" android:text="Fin set" />
+        <Button android:id="@+id/awayPlus" style="@style/ScoreButton" app:backgroundTint="#6B6B72" android:text="+1" />
+        <Button android:id="@+id/awayMinus" style="@style/ScoreButton" android:text="−" />
+    </LinearLayout>
+
+    <!-- Chargement à l'ouverture de la caméra : masque la caméra le temps que l'écran d'intro démarre -->
+    <FrameLayout
+        android:id="@+id/loadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/splash_bg"
+        android:clickable="true"
+        android:focusable="true">
+
+        <include
+            layout="@layout/loading_content"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center" />
+    </FrameLayout>
+</FrameLayout>

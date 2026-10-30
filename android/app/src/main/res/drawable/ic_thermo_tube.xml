@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tube du thermomètre (partie fixe, gris clair) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="448" android:viewportHeight="448">
+    <path android:fillColor="#FFCFD8DC"
+        android:pathData="M186,66A38,38 0,0 1,262 66V170H186Z" />
+    <path android:fillColor="#FF90A4AE"
+        android:pathData="M222,84H262V100H222ZM222,122H262V138H222Z" />
+</vector>

@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#111111">
+<title>Télécommande Volley</title>
+<style>
+  :root {
+    --home: #d00a0a;
+    --away: #8f8f8f;
+    --bg: #111;
+    --panel: #1e1e1e;
+    --text: #fff;
+    --muted: #9a9a9a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: 12px 12px 32px; max-width: 720px; margin: 0 auto; user-select: none; }
+  button { font: inherit; color: inherit; border: 0; border-radius: 14px; cursor: pointer;
+    background: #333; padding: 12px; touch-action: manipulation; }
+  button:active { filter: brightness(1.3); transform: scale(0.98); }
+
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .setno { font-weight: 700; font-size: 18px; }
+  .conn { font-size: 13px; color: var(--muted); }
+  .conn.ok::before { content: "● "; color: #3ccf4e; }
+  .conn.ko::before { content: "● "; color: #ff4d4d; }
+
+  .label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .mute { width: 100%; margin-bottom: 12px; font-weight: 700; background: var(--panel); border: 2px solid #333; }
+  .mute.on { background: var(--home); border-color: var(--home); }
+  .mute.shown { background: #17432c; border-color: #2ecc71; }
+  .sub { display: flex; align-items: flex-start; gap: 10px; margin: -4px 0 10px; }
+  .dev { flex: 1; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; }
+  .dev span { background: var(--panel); border-radius: 8px; padding: 4px 8px; }
+  .dev span.warn { background: #6b4a00; color: #fff; }
+  .dev span.bad { background: #b3261e; color: #fff; }
+  /* Son du live : petite bulle ronde, comme sur le téléphone qui filme */
+  .bubble { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; background: rgba(51, 51, 51, .8);
+    display: flex; align-items: center; justify-content: center; }
+  .bubble svg { width: 24px; height: 24px; fill: #fff; }
+  .bubble .off, .bubble.on .onIc { display: none; }
+  .bubble.on { background: var(--home); }
+  .bubble.on .off { display: block; }
+  .scenes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .scenes button { background: var(--panel); border: 2px solid #333; font-weight: 700; }
+  .scenes button.active { background: #fff; color: #111; border-color: #fff; }
+
+  .teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .team { display: flex; flex-direction: column; gap: 8px; }
+  .name { text-align: center; font-weight: 800; font-size: 20px; letter-spacing: .5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .plus { height: 42vh; min-height: 220px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; border-radius: 18px; position: relative; }
+  .home .plus { background: var(--home); }
+  .away .plus { background: var(--away); }
+  .score { font-size: min(28vw, 150px); font-weight: 800; line-height: 1; }
+  .hint { font-size: 15px; opacity: .85; margin-top: 6px; }
+  .serve { position: absolute; top: 10px; right: 12px; width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; display: none; }
+  .serving .serve { display: block; }
+  .minus { font-size: 18px; }
+  .sets { display: flex; align-items: center; justify-content: space-between; background: var(--panel);
+    border-radius: 14px; padding: 6px; }
+  .sets span { font-size: 15px; color: var(--muted); }
+  .sets b { font-size: 26px; }
+  .sets button { width: 44px; padding: 8px 0; }
+
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  #endSet.ready { background: #e6a700; color: #111; font-weight: 700; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { filter: brightness(1.25); } }
+
+  details { margin-top: 18px; background: var(--panel); border-radius: 14px; padding: 12px; }
+  summary { font-weight: 700; cursor: pointer; }
+  #chatBox summary .new { background: var(--home); color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 13px; margin-left: 6px; }
+  #chatList { max-height: 55vh; overflow-y: auto; margin-top: 10px; display: flex; flex-direction: column; gap: 6px;
+    user-select: text; -webkit-user-select: text; }
+  .msg { font-size: 15px; line-height: 1.35; word-wrap: break-word; overflow-wrap: anywhere; }
+  .msg b { font-weight: 700; }
+  .msg time { color: var(--muted); font-size: 11px; margin-right: 6px; }
+  .chatHint { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  input, select { width: 100%; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid #444;
+    background: #111; color: var(--text); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .danger { background: #5a1b1b; }
+
+  #pinBox { display: none; position: fixed; inset: 0; background: var(--bg); padding: 24px; z-index: 10; }
+  #pinBox.show { display: block; }
+  #pinBox input { font-size: 32px; text-align: center; letter-spacing: 8px; margin: 16px 0; }
+  #pinBox button { width: 100%; background: var(--home); font-weight: 700; }
+  .err { color: #ff6b6b; min-height: 20px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div id="pinBox">
+  <h2>Code PIN</h2>
+  <p>Saisissez le code affiché sur le téléphone qui filme (bouton « Télécommande »).</p>
+  <input id="pinInput" inputmode="numeric" maxlength="4" autocomplete="off">
+  <div class="err" id="pinErr"></div>
+  <button id="pinOk">Valider</button>
+</div>
+
+<div class="top">
+  <div class="setno" id="setNo">1er set</div>
+  <div class="conn" id="conn">Connexion…</div>
+</div>
+<div class="sub">
+  <div class="dev" id="dev"></div>
+  <button id="muteBtn" data-a="toggle_mute" class="bubble" aria-label="Couper le son du live" title="Couper le son du live">
+    <svg class="onIc" viewBox="0 0 24 24"><path d="M3,9v6h4l5,5V4L7,9H3zM16.5,12c0,-1.77 -1.02,-3.29 -2.5,-4.03v8.05c1.48,-0.73 2.5,-2.25 2.5,-4.02zM14,3.23v2.06c2.89,0.86 5,3.54 5,6.71s-2.11,5.85 -5,6.71v2.06c4.01,-0.91 7,-4.49 7,-8.77s-2.99,-7.86 -7,-8.77z"/></svg>
+    <svg class="off" viewBox="0 0 24 24"><path d="M16.5,12c0,-1.77 -1.02,-3.29 -2.5,-4.03v2.21l2.45,2.45c0.03,-0.2 0.05,-0.41 0.05,-0.63zM19,12c0,0.94 -0.2,1.82 -0.54,2.64l1.51,1.51C20.63,14.91 21,13.5 21,12c0,-4.28 -2.99,-7.86 -7,-8.77v2.06c2.89,0.86 5,3.54 5,6.71zM4.27,3L3,4.27 7.73,9H3v6h4l5,5v-6.73l4.25,4.25c-0.67,0.52 -1.42,0.93 -2.25,1.18v2.06c1.38,-0.31 2.63,-0.95 3.69,-1.81L19.73,21 21,19.73l-9,-9L4.27,3zM12,4L9.91,6.09 12,8.18V4z"/></svg>
+  </button>
+</div>
+
+<div class="label">Écran diffusé</div>
+<div class="scenes">
+  <button data-a="scene_intro" data-scene="intro">Intro</button>
+  <button data-a="scene_match" data-scene="match">Match</button>
+  <button data-a="scene_pause" data-scene="pause">Pause</button>
+  <button data-a="scene_outro" data-scene="outro">Fin</button>
+</div>
+
+<button id="partnersBtn" data-a="toggle_partners" class="mute" style="display:none">Partenaires pendant le match</button>
+
+<div class="teams">
+  <div class="team home" id="home">
+    <div class="name" id="homeName">DOMICILE</div>
+    <button class="plus" data-a="home_plus"><div class="serve"></div><div class="score" id="homeScore">0</div><div class="hint">+1 point</div></button>
+    <button class="minus" data-a="home_minus">−1</button>
+    <div class="sets"><button data-a="home_set_minus">−</button><div><span>Sets </span><b id="homeSets">0</b></div><button data-a="home_set_plus">+</button></div>
+  </div>
+  <div class="team away" id="away">
+    <div class="name" id="awayName">VISITEUR</div>
+    <button class="plus" data-a="away_plus"><div class="serve"></div><div class="score" id="awayScore">0</div><div class="hint">+1 point</div></button>
+    <button class="minus" data-a="away_minus">−1</button>
+    <div class="sets"><button data-a="away_set_minus">−</button><div><span>Sets </span><b id="awaySets">0</b></div><button data-a="away_set_plus">+</button></div>
+  </div>
+</div>
+
+<div class="actions">
+  <button data-a="undo">↶ Annuler</button>
+  <button id="endSet">Fin du set</button>
+</div>
+
+<details id="chatBox">
+  <summary>💬 Chat Twitch<span class="new" id="chatNew" style="display:none"></span></summary>
+  <div class="chatHint" id="chatHint">Connexion au chat…</div>
+  <div id="chatList"></div>
+</details>
+
+<details>
+  <summary>Réglages du match</summary>
+  <label for="cfgHome">Équipe à domicile</label>
+  <input id="cfgHome" maxlength="20">
+  <label for="cfgAway">Équipe visiteuse</label>
+  <input id="cfgAway" maxlength="20">
+  <label for="cfgComp">Compétition</label>
+  <select id="cfgComp">
+    <option>Championnat National 3 Masculin</option>
+    <option>Championnat Régional 1 Masculin</option>
+    <option>Championnat Régional 2 Féminin</option>
+    <option>Championnat Départemental Masculin</option>
+    <option>Championnat Départemental Féminin</option>
+    <option value="__autre">Autre…</option>
+  </select>
+  <input id="cfgCompOther" maxlength="60" placeholder="Nom de la compétition" style="display:none; margin-top:8px">
+  <div class="row">
+    <button id="saveCfg">Enregistrer</button>
+    <button data-a="toggle_overlay" id="overlayBtn">Masquer l'overlay</button>
+  </div>
+  <div class="row">
+    <button data-a="serve_home">Service domicile</button>
+    <button data-a="serve_away">Service visiteur</button>
+  </div>
+  <div class="row">
+    <button class="danger" id="resetBtn" style="grid-column: span 2">Nouveau match (remise à zéro)</button>
+  </div>
+</details>
+
+<script>
+(function () {
+  var PAGE_VERSION = '__PAGE_VERSION__';
+  var params = new URLSearchParams(location.search);
+  var pin = params.get('pin') || localStorage.getItem('pin') || '';
+  var state = null;
+  var busy = false;
+
+  function $(id) { return document.getElementById(id); }
+
+  function api(path, extra, method) {
+    var q = new URLSearchParams(extra || {});
+    q.set('pin', pin);
+    return fetch(path + '?' + q.toString(), { method: method || 'GET', cache: 'no-store' })
+      .then(function (r) {
+        return r.json().then(function (body) {
+          if (r.status === 401) { askPin('Code PIN incorrect'); throw new Error('pin'); }
+          if (!r.ok) throw new Error(body.error || 'Erreur');
+          return body;
+        });
+      });
+  }
+
+  function setConn(ok) {
+    var c = $('conn');
+    c.className = 'conn ' + (ok ? 'ok' : 'ko');
+    c.textContent = ok ? 'Connecté' : 'Déconnecté';
+  }
+
+  function render(s) {
+    // Appli mise à jour depuis l'ouverture de la page : on recharge la nouvelle télécommande
+    if (s.pageVersion && s.pageVersion !== PAGE_VERSION) { location.reload(); return; }
+    var firstLoad = state === null;
+    state = s;
+    $('setNo').textContent = s.setNumber + (s.setNumber === 1 ? 'er' : 'e') + ' set';
+    $('homeName').textContent = s.homeName;
+    $('awayName').textContent = s.awayName;
+    $('homeScore').textContent = s.homeScore;
+    $('awayScore').textContent = s.awayScore;
+    $('homeSets').textContent = s.homeSets;
+    $('awaySets').textContent = s.awaySets;
+    $('home').classList.toggle('serving', s.serving === 'home');
+    $('away').classList.toggle('serving', s.serving === 'away');
+    $('endSet').classList.toggle('ready', !!s.setWinner);
+    document.querySelectorAll('[data-scene]').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-scene') === s.scene);
+    });
+    $('muteBtn').classList.toggle('on', !!s.audioMuted);
+    $('muteBtn').title = s.audioMuted ? 'Son du live coupé : toucher pour le remettre' : 'Couper le son du live';
+    $('muteBtn').setAttribute('aria-label', $('muteBtn').title);
+    renderDevice(s.device || {}, s.twitch || {});
+    $('partnersBtn').style.display = s.partnerCount > 0 ? '' : 'none';
+    $('partnersBtn').textContent = s.partnersVisible
+      ? 'Partenaires pendant le match : affichés'
+      : 'Partenaires pendant le match : masqués';
+    $('partnersBtn').classList.toggle('shown', !!s.partnersVisible);
+    $('overlayBtn').textContent = s.overlayVisible ? "Masquer l'overlay" : "Afficher l'overlay";
+    if (firstLoad || (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT')) {
+      $('cfgHome').value = s.homeName;
+      $('cfgAway').value = s.awayName;
+      setCompetition(s.competition);
+    }
+  }
+
+  // Téléphone qui filme : batterie, chauffe, réseau
+  function renderDevice(d, tw) {
+    var parts = [];
+    if (tw && tw.viewers >= 0) parts.push('<span>👁 ' + tw.viewers + (tw.viewers > 1 ? ' spectateurs' : ' spectateur') + '</span>');
+    if (d.battery >= 0) {
+      var cls = !d.charging && d.battery <= 15 ? 'bad' : (!d.charging && d.battery <= 30 ? 'warn' : '');
+      parts.push('<span class="' + cls + '">' + (d.charging ? '🔌 ' : '🔋 ') + d.battery + ' %</span>');
+      if (d.temperature) {
+        var t = Math.round(d.temperature);
+        parts.push('<span class="' + (t >= 43 ? 'bad' : (t >= 38 ? 'warn' : '')) + '">🌡 ' + t + ' °C</span>');
+      }
+    }
+    if (d.live) {
+      var mb = (d.bitrate / 1e6).toFixed(1).replace('.', ',');
+      parts.push('<span class="' + (d.weak ? 'bad' : '') + '">' + (d.weak ? '⚠ Réseau faible · ' : '📶 ') + mb + ' Mb/s' +
+        (d.quality ? ' · ' + d.quality : '') + '</span>');
+    } else {
+      parts.push('<span>Live arrêté' + (d.quality ? ' · qualité ' + d.quality : '') + '</span>');
+    }
+    $('dev').innerHTML = parts.join('');
+  }
+
+  function action(a) {
+    if (busy) return;
+    busy = true;
+    if (navigator.vibrate) navigator.vibrate(30);
+    api('/api/action', { a: a }, 'POST')
+      .then(function (s) { setConn(true); render(s); })
+      .catch(function (e) { if (e.message !== 'pin') setConn(false); })
+      .then(function () { busy = false; });
+  }
+
+  function refresh() {
+    if (!pin) return;
+    api('/api/state')
+      .then(function (s) { setConn(true); if (!busy) render(s); })
+      .catch(function (e) { if (e.message !== 'pin') setConn(false); });
+  }
+
+  function askPin(msg) {
+    $('pinErr').textContent = msg || '';
+    $('pinBox').classList.add('show');
+    $('pinInput').focus();
+  }
+
+  $('pinOk').addEventListener('click', function () {
+    pin = $('pinInput').value.trim();
+    localStorage.setItem('pin', pin);
+    $('pinBox').classList.remove('show');
+    refresh();
+  });
+
+  document.querySelectorAll('[data-a]').forEach(function (b) {
+    b.addEventListener('click', function () { action(b.getAttribute('data-a')); });
+  });
+
+  $('endSet').addEventListener('click', function () {
+    if (!state) return;
+    if (state.homeScore === state.awayScore) { alert('Égalité : impossible d\'attribuer le set.'); return; }
+    var w = state.homeScore > state.awayScore ? state.homeName : state.awayName;
+    if (confirm('Set ' + state.setNumber + ' gagné par ' + w + ' (' + state.homeScore + '-' + state.awayScore + ') ?')) action('end_set');
+  });
+
+  $('resetBtn').addEventListener('click', function () {
+    if (confirm('Remettre tout le match à zéro ?')) action('reset');
+  });
+
+  // Compétition : une valeur de la liste, ou « Autre… » avec saisie libre
+  function setCompetition(c) {
+    var known = Array.prototype.some.call($('cfgComp').options, function (o) { return o.value === c && c !== '__autre'; });
+    $('cfgComp').value = known ? c : '__autre';
+    $('cfgCompOther').value = known ? '' : c;
+    $('cfgCompOther').style.display = known ? 'none' : '';
+  }
+  $('cfgComp').addEventListener('change', function () {
+    var other = $('cfgComp').value === '__autre';
+    $('cfgCompOther').style.display = other ? '' : 'none';
+    if (other) $('cfgCompOther').focus();
+  });
+
+  // ---- Chat Twitch (lu par le téléphone qui filme) ----
+  var chatLast = 0, chatUnread = 0, chatBusy = false;
+  function two(n) { return (n < 10 ? '0' : '') + n; }
+  function addMessages(list) {
+    var box = $('chatList');
+    var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    list.forEach(function (m) {
+      var div = document.createElement('div');
+      div.className = 'msg';
+      div.setAttribute('data-id', m.id);
+      var t = new Date(m.at);
+      var time = document.createElement('time');
+      time.textContent = two(t.getHours()) + ':' + two(t.getMinutes());
+      var name = document.createElement('b');
+      name.textContent = m.name;
+      name.style.color = m.color || '#bf94ff';
+      div.appendChild(time);
+      div.appendChild(name);
+      div.appendChild(document.createTextNode(' : ' + m.text));
+      box.appendChild(div);
+      chatLast = Math.max(chatLast, m.id);
+    });
+    while (box.children.length > 150) box.removeChild(box.firstChild);
+    if (atBottom || !$('chatBox').open) box.scrollTop = box.scrollHeight;
+  }
+  function pollChat() {
+    if (chatBusy || !pin) return;
+    chatBusy = true;
+    api('/api/chat', { since: chatLast }).then(function (c) {
+      chatBusy = false;
+      (c.removed || []).forEach(function (id) {
+        var el = document.querySelector('.msg[data-id="' + id + '"]');
+        if (el) el.parentNode.removeChild(el);
+      });
+      var fresh = (c.messages || []).filter(function (m) { return m.id > chatLast; });
+      if (fresh.length) {
+        addMessages(fresh);
+        if (!$('chatBox').open) chatUnread += fresh.length;
+      }
+      var hint = '';
+      if (!c.channel) hint = 'Chat indisponible : connectez le compte Twitch dans l\'appli, ou indiquez le nom de la chaîne dans les réglages Twitch.';
+      else if (c.chat === 'connecting') hint = 'Connexion au chat de ' + c.channel + '…';
+      else if (c.chat === 'error') hint = 'Chat injoignable (réseau du téléphone qui filme), nouvel essai en cours…';
+      else if (!$('chatList').children.length) hint = 'Chat de ' + c.channel + ' : aucun message pour l\'instant.';
+      $('chatHint').textContent = hint;
+      $('chatHint').style.display = hint ? '' : 'none';
+      $('chatNew').textContent = chatUnread;
+      $('chatNew').style.display = chatUnread > 0 ? '' : 'none';
+    }).catch(function () { chatBusy = false; });
+  }
+  $('chatBox').addEventListener('toggle', function () {
+    if ($('chatBox').open) {
+      chatUnread = 0;
+      $('chatNew').style.display = 'none';
+      $('chatList').scrollTop = $('chatList').scrollHeight;
+    }
+  });
+  setInterval(pollChat, 2000);
+
+  $('saveCfg').addEventListener('click', function () {
+    var comp = $('cfgComp').value === '__autre' ? $('cfgCompOther').value.trim() : $('cfgComp').value;
+    if (!comp) { $('cfgCompOther').focus(); return; }
+    api('/api/config', { home: $('cfgHome').value, away: $('cfgAway').value, competition: comp }, 'POST')
+      .then(function (s) { render(s); document.activeElement.blur(); })
+      .catch(function () {});
+  });
+
+  if (params.get('pin')) {
+    localStorage.setItem('pin', pin);
+    history.replaceState(null, '', location.pathname);
+  }
+  if (!pin) askPin(); else refresh();
+  setInterval(refresh, 1000);
+})();
+</script>
+</body>
+</html>

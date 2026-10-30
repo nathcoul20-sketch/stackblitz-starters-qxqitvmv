@@ -1,0 +1,53 @@
+name: Android APK
+
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VolleyLive-apk
+          path: android/app/build/outputs/apk/release/*.apk
+
+      # Lien de téléchargement fixe, toujours vers la dernière version :
+      # https://github.com/<dépôt>/releases/download/apk-latest/VolleyLive.apk
+      - name: Publish latest APK
+        if: github.ref == 'refs/heads/claude/android-volley-live-overlay-aaka1k'
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk VolleyLive.apk
+          NOTES="Dernière version de Volley Live ($(date -u '+%d/%m/%Y %H:%M') UTC, commit ${GITHUB_SHA::7}). Télécharger VolleyLive.apk puis l'installer sur le téléphone."
+          if gh release view apk-latest >/dev/null 2>&1; then
+            gh release edit apk-latest --notes "$NOTES"
+          else
+            gh release create apk-latest --title "Volley Live – dernière version" --notes "$NOTES" --target "$GITHUB_SHA"
+          fi
+          gh release upload apk-latest VolleyLive.apk --clobber
