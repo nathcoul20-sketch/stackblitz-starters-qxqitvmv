@@ -7,17 +7,17 @@ import android.media.MediaFormat
 import com.pedro.encoder.input.audio.CustomAudioEffect
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 /**
  * Mixe le son envoyé dans le live. Branché sur le micro (« effet audio » de RootEncoder),
  * il reçoit chaque bloc de son du micro et le remplace par :
- *   micro × gainMicro + musique × gainMusique.
+ *   micro × gainMicro + musique × gainMusique + bande-son de la transition Intro → Match.
  *
  * Sur les écrans d'intro et de fin ([musicOn] = true) : musique, micro coupé.
  * En match : micro seul. Pendant une transition, le son en cours s'éteint doucement jusqu'au
- * changement d'écran ([fadeOutFor]), puis le son du nouvel écran remonte progressivement ([fadeInFor]) ;
- * pour la transition du club, le son d'avant continue sous la vidéo puis bascule ([fadeInFor]).
+ * changement d'écran ([fadeOutFor]), puis le son du nouvel écran remonte progressivement ([fadeInFor]).
  *
  * Format attendu partout : PCM 16 bits, 44 100 Hz, stéréo.
  */
@@ -42,9 +42,25 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
 
     @Volatile private var running = true
 
+    /** Bande-son de la transition Intro → Match, décodée d'avance ; jouée par-dessus le reste. */
+    @Volatile private var effect: ShortArray? = null
+    /** Position de lecture dans [effect], -1 : arrêtée. */
+    private val effectPos = AtomicInteger(-1)
+
     init {
         val appContext = context.applicationContext
         thread(name = "music-decoder", isDaemon = true) { decodeMusicLoop(appContext) }
+        thread(name = "effect-decoder", isDaemon = true) { effect = decodeAll(appContext, R.raw.stinger_sound) }
+    }
+
+    /** Lance la bande-son de la transition depuis le début (en même temps que sa vidéo). */
+    fun playEffect() {
+        if (effect != null) effectPos.set(0)
+    }
+
+    /** Arrête la bande-son (transition interrompue). */
+    fun stopEffect() {
+        effectPos.set(-1)
     }
 
     /** Début de transition : le son actuel (musique ou micro) s'éteint en [ms] millisecondes. */
@@ -53,13 +69,9 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
         dip = true
     }
 
-    /**
-     * Pendant une transition : le son de la nouvelle scène remonte en [ms] ms (et, s'il était encore
-     * là, celui d'avant s'éteint dans le même temps : fondu enchaîné).
-     */
+    /** Changement d'écran pendant la transition : le son de la nouvelle scène remonte en [ms] ms. */
     fun fadeInFor(ms: Long, music: Boolean) {
         fadeUpStep = stepFor(ms)
-        fadeDownStep = stepFor(ms)
         musicOn = music
         dip = false
     }
@@ -91,17 +103,31 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
         if (musicBlock.size < count) musicBlock = ShortArray(count)
         val got = if (needMusic) music.read(musicBlock, count) else 0
 
+        val fx = effect
+        val fxStart = effectPos.get()
+        var fxPos = fxStart
+
         for (i in 0 until count) {
             musicGain = approach(musicGain, musicTarget)
             micGain = approach(micGain, micTarget)
             val mic = samples.get(i) * micGain
             val m = if (i < got) musicBlock[i] * musicGain * MUSIC_VOLUME else 0f
+            // Bande-son de la transition : à plein volume, indépendante des fondus micro / musique
+            var e = 0f
+            if (fx != null && fxPos >= 0) {
+                if (fxPos < fx.size) e = fx[fxPos++] * EFFECT_VOLUME else fxPos = -1
+            }
             masterGain = when {
                 masterGain < masterTarget -> minOf(masterTarget, masterGain + MUTE_STEP)
                 masterGain > masterTarget -> maxOf(masterTarget, masterGain - MUTE_STEP)
                 else -> masterGain
             }
-            samples.put(i, ((mic + m) * masterGain).toInt().coerceIn(-32768, 32767).toShort())
+            samples.put(i, ((mic + m + e) * masterGain).toInt().coerceIn(-32768, 32767).toShort())
+        }
+        if (fxStart >= 0) {
+            val next = if (fx == null || fxPos < 0 || fxPos >= fx.size) -1 else fxPos
+            // Relancée entre-temps (playEffect) : on ne l'écrase pas
+            effectPos.compareAndSet(fxStart, next)
         }
         return pcmBuffer
     }
@@ -173,12 +199,75 @@ class AudioMixer(context: Context) : CustomAudioEffect() {
         }
     }
 
+    /** Décode un son entier en mémoire (PCM 16 bits entrelacé), null s'il est illisible. */
+    private fun decodeAll(context: Context, resId: Int): ShortArray? {
+        val extractor = MediaExtractor()
+        var codec: MediaCodec? = null
+        try {
+            context.resources.openRawResourceFd(resId).use { afd ->
+                extractor.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            }
+            val track = (0 until extractor.trackCount).first {
+                extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+            }
+            extractor.selectTrack(track)
+            val format = extractor.getTrackFormat(track)
+            codec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+            codec.configure(format, null, null, 0)
+            codec.start()
+
+            var out = ShortArray(SAMPLE_RATE * CHANNELS * 17)
+            var size = 0
+            val info = MediaCodec.BufferInfo()
+            var inputDone = false
+            var spins = 0
+            while (running && spins++ < 200_000) {
+                if (!inputDone) {
+                    val inIndex = codec.dequeueInputBuffer(10_000)
+                    if (inIndex >= 0) {
+                        val buffer = codec.getInputBuffer(inIndex)!!
+                        val n = extractor.readSampleData(buffer, 0)
+                        if (n < 0) {
+                            codec.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            inputDone = true
+                        } else {
+                            codec.queueInputBuffer(inIndex, 0, n, extractor.sampleTime, 0)
+                            extractor.advance()
+                        }
+                    }
+                }
+                val outIndex = codec.dequeueOutputBuffer(info, 10_000)
+                if (outIndex >= 0) {
+                    val buf = codec.getOutputBuffer(outIndex)!!
+                    buf.position(info.offset)
+                    buf.limit(info.offset + info.size)
+                    val shorts = buf.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
+                    val n = shorts.remaining()
+                    if (size + n > out.size) out = out.copyOf(maxOf(out.size * 2, size + n))
+                    shorts.get(out, size, n)
+                    size += n
+                    codec.releaseOutputBuffer(outIndex, false)
+                    if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
+                }
+            }
+            return if (size > 0) out.copyOf(size) else null
+        } catch (e: Exception) {
+            return null
+        } finally {
+            runCatching { codec?.stop() }
+            runCatching { codec?.release() }
+            extractor.release()
+        }
+    }
+
     companion object {
         private const val SAMPLE_RATE = 44_100
         private const val CHANNELS = 2
         /** Fondu micro ↔ musique en ~0,8 s. */
         private const val FADE_STEP = 1f / (SAMPLE_RATE * CHANNELS * 0.8f)
         private const val MUSIC_VOLUME = 0.8f
+        /** Bande-son de la transition Intro → Match (déjà mixée fort). */
+        private const val EFFECT_VOLUME = 0.85f
         /** Coupure / remise du son en ~0,1 s (évite un « clic »). */
         private const val MUTE_STEP = 1f / (SAMPLE_RATE * CHANNELS * 0.1f)
     }
