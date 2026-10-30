@@ -109,8 +109,8 @@ class SceneController(
     /** Transition ECVB courte : tous les changements d'écran… */
     private val quick = Transition(R.raw.transition, cutMs = QUICK_CUT_MS, soundInMs = null, withSound = false)
     /**
-     * …sauf Intro → Match : transition du club (couvre l'écran de 1 s à 8,4 s, puis s'ouvre sur le
-     * match ; le micro remonte pendant l'ouverture). Version allégée si le téléphone ne sait pas lire
+     * …sauf Intro → Match : transition du club (couvre l'écran de 1 s à 9 s, puis le match apparaît
+     * par le col du maillot ; le micro remonte pendant l'ouverture). Version allégée si le téléphone ne sait pas lire
      * la vidéo pleine définition. Préparée seulement quand l'Intro est affichée.
      */
     private val stinger = Transition(
@@ -364,9 +364,9 @@ class SceneController(
         private const val SHOW_DELAY_MS = 80L
         /** Transition courte : les volets couvrent tout l'écran entre 0,3 s et 1,1 s. */
         private const val QUICK_CUT_MS = 730L
-        /** Transition du club : écran couvert de 1 s à 8,4 s, puis ouverture sur le match. */
+        /** Transition du club : écran couvert de 1 s à 9 s, puis ouverture sur le match par le col du maillot. */
         private const val STINGER_CUT_MS = 1_200L
-        private const val STINGER_SOUND_IN_MS = 8_400L
+        private const val STINGER_SOUND_IN_MS = 9_000L
         /** Sécurité : fin forcée de la transition, après sa durée + cette marge. */
         private const val TIMEOUT_MARGIN_MS = 1_500L
         /** Remontée du son si la transition s'est terminée avant de le faire. */
